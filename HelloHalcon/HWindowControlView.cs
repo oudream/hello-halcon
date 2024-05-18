@@ -25,11 +25,17 @@ namespace HelloHalcon
         public HObject origImage;
         public HObject ShowingImage;
 
+        private List<Rectangle> rectanglesFromConfig;
+        private List<Rectangle> userRectangles;
+
         public HWindowControl hw_ctrl;
 
         public HalconWindowTools(HWindowControl hWindowControl1)
         {
             hw_ctrl = hWindowControl1;
+
+            rectanglesFromConfig = new List<Rectangle>();
+            userRectangles = new List<Rectangle>();
 
             //设置线条颜色和字体
             HOperatorSet.SetColor(hw_ctrl.HalconWindow, "green");
@@ -126,6 +132,8 @@ namespace HelloHalcon
 
                 HOperatorSet.SetPart(hw_ctrl.HalconWindow, row1, column1, row2, column2);
                 ShowImage(image);
+
+                DrawAllRectangles();
             }
             catch (Exception ex)
             {
@@ -172,6 +180,8 @@ namespace HelloHalcon
                 hw_ctrl.HalconWindow.SetPart(zoom_beginRow, zoom_beginCol, zoom_endRow, zoom_endCol);
 
                 ShowImage(ShowingImage);
+
+                DrawAllRectangles();
             }
             catch (Exception ex)
             {
@@ -193,6 +203,8 @@ namespace HelloHalcon
                 hw_ctrl.HalconWindow.SetPart(current_beginRow + btn_down_row - mouse_post_row, current_beginCol + btn_down_col - mouse_pose_col, current_endRow + btn_down_row - mouse_post_row, current_endCol + btn_down_col - mouse_pose_col);
 
                 ShowImage(ShowingImage);
+
+                DrawAllRectangles();
             }
             catch (Exception ex)
             {
@@ -205,6 +217,42 @@ namespace HelloHalcon
         {
             HOperatorSet.ReadImage(out origImage, imgPath);
             DispImageFit(origImage);
+        }
+
+        public void LoadRectanglesFromConfig(List<Rectangle> rects)
+        {
+            rectanglesFromConfig = rects;
+            DrawAllRectangles();
+        }
+
+        public void AddUserRectangle(Rectangle rect)
+        {
+            userRectangles.Add(rect);
+            DrawAllRectangles();
+        }
+
+        public void DrawAllRectangles()
+        {
+            if (ShowingImage == null) return;
+
+            HOperatorSet.ClearWindow(hw_ctrl.HalconWindow);
+            HOperatorSet.DispObj(ShowingImage, hw_ctrl.HalconWindow);
+
+            foreach (var rect in rectanglesFromConfig)
+            {
+                DrawRectangle(rect);
+            }
+
+            foreach (var rect in userRectangles)
+            {
+                DrawRectangle(rect);
+            }
+        }
+
+        public void DrawRectangle(Rectangle rect)
+        {
+            HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
+            HOperatorSet.DispRectangle1(hw_ctrl.HalconWindow, rect.Top, rect.Left, rect.Bottom, rect.Right);
         }
 
     }

@@ -29,13 +29,13 @@
         private void InitializeComponent()
         {
             this.panel1 = new System.Windows.Forms.Panel();
+            this.textBox3 = new System.Windows.Forms.TextBox();
+            this.textBox2 = new System.Windows.Forms.TextBox();
+            this.textBox1 = new System.Windows.Forms.TextBox();
             this.button1 = new System.Windows.Forms.Button();
             this.panel2 = new System.Windows.Forms.Panel();
             this.hWindowControl = new HalconDotNet.HWindowControl();
             this.panel3 = new System.Windows.Forms.Panel();
-            this.textBox1 = new System.Windows.Forms.TextBox();
-            this.textBox2 = new System.Windows.Forms.TextBox();
-            this.textBox3 = new System.Windows.Forms.TextBox();
             this.winTechnologyCheckBox = new System.Windows.Forms.CheckBox();
             this.WLtextBox = new System.Windows.Forms.TextBox();
             this.WWtextBox = new System.Windows.Forms.TextBox();
@@ -61,6 +61,27 @@
             this.panel1.Size = new System.Drawing.Size(1140, 100);
             this.panel1.TabIndex = 0;
             // 
+            // textBox3
+            // 
+            this.textBox3.Location = new System.Drawing.Point(377, 26);
+            this.textBox3.Name = "textBox3";
+            this.textBox3.Size = new System.Drawing.Size(100, 28);
+            this.textBox3.TabIndex = 1;
+            // 
+            // textBox2
+            // 
+            this.textBox2.Location = new System.Drawing.Point(271, 26);
+            this.textBox2.Name = "textBox2";
+            this.textBox2.Size = new System.Drawing.Size(100, 28);
+            this.textBox2.TabIndex = 1;
+            // 
+            // textBox1
+            // 
+            this.textBox1.Location = new System.Drawing.Point(165, 26);
+            this.textBox1.Name = "textBox1";
+            this.textBox1.Size = new System.Drawing.Size(100, 28);
+            this.textBox1.TabIndex = 1;
+            // 
             // button1
             // 
             this.button1.Location = new System.Drawing.Point(12, 12);
@@ -84,12 +105,13 @@
             // 
             this.hWindowControl.BackColor = System.Drawing.Color.Black;
             this.hWindowControl.BorderColor = System.Drawing.Color.Black;
+            this.hWindowControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.hWindowControl.ImagePart = new System.Drawing.Rectangle(0, 0, 640, 480);
-            this.hWindowControl.Location = new System.Drawing.Point(12, 6);
+            this.hWindowControl.Location = new System.Drawing.Point(0, 0);
             this.hWindowControl.Name = "hWindowControl";
-            this.hWindowControl.Size = new System.Drawing.Size(1116, 630);
+            this.hWindowControl.Size = new System.Drawing.Size(1140, 642);
             this.hWindowControl.TabIndex = 0;
-            this.hWindowControl.WindowSize = new System.Drawing.Size(1116, 630);
+            this.hWindowControl.WindowSize = new System.Drawing.Size(1140, 642);
             // 
             // panel3
             // 
@@ -104,27 +126,6 @@
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(1140, 100);
             this.panel3.TabIndex = 0;
-            // 
-            // textBox1
-            // 
-            this.textBox1.Location = new System.Drawing.Point(165, 26);
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(100, 28);
-            this.textBox1.TabIndex = 1;
-            // 
-            // textBox2
-            // 
-            this.textBox2.Location = new System.Drawing.Point(271, 26);
-            this.textBox2.Name = "textBox2";
-            this.textBox2.Size = new System.Drawing.Size(100, 28);
-            this.textBox2.TabIndex = 1;
-            // 
-            // textBox3
-            // 
-            this.textBox3.Location = new System.Drawing.Point(377, 26);
-            this.textBox3.Name = "textBox3";
-            this.textBox3.Size = new System.Drawing.Size(100, 28);
-            this.textBox3.TabIndex = 1;
             // 
             // winTechnologyCheckBox
             // 

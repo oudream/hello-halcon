@@ -21,6 +21,10 @@ namespace HelloHalcon
         private int mouseLeftDownRow;
         private int mouseLeftDownCol;
 
+        private Point startPoint;
+        private Rectangle currentRectangle;
+        private bool isDrawing;
+
         public Form1()
         {
             InitializeComponent();
@@ -31,29 +35,75 @@ namespace HelloHalcon
             this.hWindowControl.HMouseMove += HWindowControl_HMouseMove;
             this.hWindowControl.HMouseUp += HWindowControl_HMouseUp;
             this.hWindowControl.HMouseWheel += HWindowControl_HMouseWheel;
+
+            LoadRectanglesFromConfig();
+        }
+        private void LoadRectanglesFromConfig()
+        {
+            var rects = new List<Rectangle>();
+
+            // 从配置文件加载矩形框信息
+            var configRectangles = "10,10,100,100;150,150,200,200";
+            if (!string.IsNullOrEmpty(configRectangles))
+            {
+                var rectArray = configRectangles.Split(';');
+                foreach (var rect in rectArray)
+                {
+                    var values = rect.Split(',');
+                    if (values.Length == 4)
+                    {
+                        var rectangle = new Rectangle(
+                            int.Parse(values[0]),
+                            int.Parse(values[1]),
+                            int.Parse(values[2]),
+                            int.Parse(values[3])
+                        );
+                        rects.Add(rectangle);
+                    }
+                }
+            }
+
+            hWindowTool.LoadRectanglesFromConfig(rects);
         }
 
         private void HWindowControl_HMouseDown(object sender, HMouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left)//鼠标点下左键
+            if (e.Button == MouseButtons.Left)
             {
-                mouseLeftButDown = true;
-                hWindowControl.HalconWindow.GetMposition(out mouseLeftDownRow, out mouseLeftDownCol, out _);
-                if (e.Clicks == 2) hWindowTool.DispImageFit(hWindowTool.ShowingImage);
+                if (ModifierKeys == Keys.Shift) // 按住 Shift 键时开始绘制矩形
+                {
+                    isDrawing = true;
+                    startPoint = new Point((int)e.X, (int)e.Y);
+                }
+                else
+                {
+                    mouseLeftButDown = true;
+                    hWindowControl.HalconWindow.GetMposition(out mouseLeftDownRow, out mouseLeftDownCol, out _);
+                    if (e.Clicks == 2) hWindowTool.DispImageFit(hWindowTool.ShowingImage);
+                }
             }
         }
 
 
         private void HWindowControl_HMouseUp(object sender, HMouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left)//鼠标左键松开
+            //鼠标左键松开
+            if (e.Button == MouseButtons.Left)
             {
-                mouseLeftButDown = false;
-                try
+                if (isDrawing)
                 {
-                    hWindowControl.HalconWindow.GetMposition(out _, out _, out _);
+                    isDrawing = false;
+                    hWindowTool.AddUserRectangle(currentRectangle);
                 }
-                catch { }
+                else
+                {
+                    mouseLeftButDown = false;
+                    try
+                    {
+                        hWindowControl.HalconWindow.GetMposition(out _, out _, out _);
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -61,7 +111,18 @@ namespace HelloHalcon
         private void HWindowControl_HMouseMove(object sender, HMouseEventArgs e)
         {
             // 鼠标按下时进行移动
-            if (mouseLeftButDown)
+            if (isDrawing)
+            {
+                currentRectangle = new Rectangle(
+                    (int)Math.Min(startPoint.X, e.X),
+                    (int)Math.Min(startPoint.Y, e.Y),
+                    (int)Math.Abs(startPoint.X - e.X),
+                    (int)Math.Abs(startPoint.Y - e.Y)
+                );
+                hWindowTool.DrawAllRectangles();
+                hWindowTool.DrawRectangle(currentRectangle);
+            }
+            else if (mouseLeftButDown)
             {
                 hWindowTool.DispImageMove(mouseLeftDownRow, mouseLeftDownCol);
             }
@@ -143,6 +204,7 @@ namespace HelloHalcon
             WWtextBox.Text = WW.ToString();
             hWindowTool.UpdataImage(hWindowTool.origImage, winTechnologyCheckBox.Checked, WL, WW);
         }
+
     }
 
 
