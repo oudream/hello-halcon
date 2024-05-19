@@ -42,6 +42,7 @@
             this.WLBar = new System.Windows.Forms.TrackBar();
             this.WWBar = new System.Windows.Forms.TrackBar();
             this.WWLabel = new System.Windows.Forms.Label();
+            this.btnToggleFillMode = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
             this.panel3.SuspendLayout();
@@ -51,6 +52,7 @@
             // 
             // panel1
             // 
+            this.panel1.Controls.Add(this.btnToggleFillMode);
             this.panel1.Controls.Add(this.textBox3);
             this.panel1.Controls.Add(this.textBox2);
             this.panel1.Controls.Add(this.textBox1);
@@ -203,6 +205,16 @@
             this.WWLabel.TabIndex = 23;
             this.WWLabel.Text = "WW";
             // 
+            // btnToggleFillMode
+            // 
+            this.btnToggleFillMode.Location = new System.Drawing.Point(486, 12);
+            this.btnToggleFillMode.Name = "btnToggleFillMode";
+            this.btnToggleFillMode.Size = new System.Drawing.Size(178, 48);
+            this.btnToggleFillMode.TabIndex = 2;
+            this.btnToggleFillMode.Text = "切换到实心模式";
+            this.btnToggleFillMode.UseVisualStyleBackColor = true;
+            this.btnToggleFillMode.Click += new System.EventHandler(this.button2_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 18F);
@@ -240,6 +252,7 @@
         private System.Windows.Forms.TrackBar WLBar;
         private System.Windows.Forms.TrackBar WWBar;
         private System.Windows.Forms.Label WWLabel;
+        private System.Windows.Forms.Button btnToggleFillMode;
     }
 }
 

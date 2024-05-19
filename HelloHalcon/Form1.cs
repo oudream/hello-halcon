@@ -43,7 +43,7 @@ namespace HelloHalcon
             var rects = new List<Rectangle>();
 
             // 从配置文件加载矩形框信息
-            var configRectangles = "10,10,100,100;150,150,200,200";
+            var configRectangles = "10,10,100,100;0,1024,3071,1024";
             if (!string.IsNullOrEmpty(configRectangles))
             {
                 var rectArray = configRectangles.Split(';');
@@ -205,6 +205,11 @@ namespace HelloHalcon
             hWindowTool.UpdataImage(hWindowTool.origImage, winTechnologyCheckBox.Checked, WL, WW);
         }
 
+        private void button2_Click(object sender, EventArgs e)
+        {
+            hWindowTool.IsFilled = !hWindowTool.IsFilled; // 切换实心和空心模式
+            btnToggleFillMode.Text = hWindowTool.IsFilled ? "切换到空心模式" : "切换到实心模式"; // 更新按钮文本
+        }
     }
 
 

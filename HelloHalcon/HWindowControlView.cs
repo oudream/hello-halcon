@@ -30,6 +30,8 @@ namespace HelloHalcon
 
         public HWindowControl hw_ctrl;
 
+        public bool IsFilled { get; set; } = false; // 添加布尔标志以指示当前的绘制模式
+
         public HalconWindowTools(HWindowControl hWindowControl1)
         {
             hw_ctrl = hWindowControl1;
@@ -42,6 +44,8 @@ namespace HelloHalcon
             HOperatorSet.QueryFont(hw_ctrl.HalconWindow, out HTuple hv_Font);
             HTuple FontWithStyleAndSize = hv_Font.TupleSelect(0) + "-Bold-24";
             HOperatorSet.SetFont(hw_ctrl.HalconWindow, FontWithStyleAndSize);
+            HOperatorSet.SetDraw(hw_ctrl.HalconWindow, "margin");
+            //hw_ctrl.HalconWindow.SetDraw("margin");
         }
 
         /// <summary>
@@ -251,10 +255,25 @@ namespace HelloHalcon
 
         public void DrawRectangle(Rectangle rect)
         {
-            HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
-            HOperatorSet.DispRectangle1(hw_ctrl.HalconWindow, rect.Top, rect.Left, rect.Bottom, rect.Right);
-        }
+            //double row1 = rect.Top;
+            //double col1 = rect.Left;
+            //double row2 = rect.Bottom;
+            //double col2 = rect.Right;
+            //double row = (row1 + row2) / 2;
+            //double col = (col1 + col2) / 2;
+            //double phi = 0.0; // 没有旋转角度
+            //double length1 = Math.Abs(row2 - row1) / 2;
+            //double length2 = Math.Abs(col2 - col1) / 2;
 
+            //HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
+            //HOperatorSet.GenRectangle2(out HObject rectOut, row, col, phi, length1, length2);
+            //HOperatorSet.DispObj(rectOut, hw_ctrl.HalconWindow);
+
+            HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
+            HOperatorSet.SetDraw(hw_ctrl.HalconWindow, IsFilled ? "fill" : "margin"); // 根据标志设置绘制模式
+            HOperatorSet.DispRectangle1(hw_ctrl.HalconWindow, rect.Top, rect.Left, rect.Bottom, rect.Right);
+
+        }
     }
 
 }
