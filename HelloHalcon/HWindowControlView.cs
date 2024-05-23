@@ -1,279 +1,274 @@
 ﻿using HalconDotNet;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Configuration;
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
+using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Forms;
 
 namespace HelloHalcon
 {
-    public class HalconWindowTools
+    public class HWindowControlView
     {
-        private int current_beginRow, current_beginCol, current_endRow, current_endCol;
-        private int zoom_beginRow, zoom_beginCol, zoom_endRow, zoom_endCol;
-        public HObject origImage;
-        public HObject ShowingImage;
+        public delegate void ShowImageInfoDelegate(int x, int y, int grayscaleValue);
+        public ShowImageInfoDelegate ShowImageInfo;
 
-        private List<Rectangle> rectanglesFromConfig;
-        private List<Rectangle> userRectangles;
+        HWindowControl _hWindowControl;
+        CheckBox _winTechnologyCheckBox;
+        TrackBar _wlBar;
+        TextBox _wlTextBox;
+        TrackBar _wwBar;
+        TextBox _wwTextBox;
+        RadioButton _noneRadioButton;
+        RadioButton _autoWLWWRadioButton;
 
-        public HWindowControl hw_ctrl;
+        public HalconWindowTools _hWindowTools;
 
-        public bool IsFilled { get; set; } = false; // 添加布尔标志以指示当前的绘制模式
+        public bool mouseLeftButDown;
+        private int mouseLeftDownRow;
+        private int mouseLeftDownCol;
 
-        public HalconWindowTools(HWindowControl hWindowControl1)
+        private Point startPoint;
+        private Rectangle currentRectangle;
+        private bool isDrawing;
+        public HWindowControlView(HalconWindowTools halconWindowTools, CheckBox winTechnologyCheckBox, TrackBar wlBar, TextBox wlTextBox, TrackBar wwBar, TextBox wwTextBox, RadioButton noneRadioButton, RadioButton autoWLWWRadioButton)
         {
-            hw_ctrl = hWindowControl1;
+            _hWindowTools = halconWindowTools;
 
-            rectanglesFromConfig = new List<Rectangle>();
-            userRectangles = new List<Rectangle>();
+            _winTechnologyCheckBox = winTechnologyCheckBox;
+            _wlBar = wlBar;
+            _wlTextBox = wlTextBox;
+            _wwBar = wwBar;
+            _wwTextBox = wwTextBox;
+            _noneRadioButton = noneRadioButton;
+            _autoWLWWRadioButton = autoWLWWRadioButton;
 
-            //设置线条颜色和字体
-            HOperatorSet.SetColor(hw_ctrl.HalconWindow, "green");
-            HOperatorSet.QueryFont(hw_ctrl.HalconWindow, out HTuple hv_Font);
-            HTuple FontWithStyleAndSize = hv_Font.TupleSelect(0) + "-Bold-24";
-            HOperatorSet.SetFont(hw_ctrl.HalconWindow, FontWithStyleAndSize);
-            HOperatorSet.SetDraw(hw_ctrl.HalconWindow, "margin");
-            //hw_ctrl.HalconWindow.SetDraw("margin");
+            _hWindowControl = _hWindowTools.GetHWindowControl();
+            _hWindowControl.HMouseDown += HWindowControl_HMouseDown;
+            _hWindowControl.HMouseMove += HWindowControl_HMouseMove;
+            _hWindowControl.HMouseUp += HWindowControl_HMouseUp;
+            _hWindowControl.HMouseWheel += HWindowControl_HMouseWheel;
+
+            _wlBar.Scroll += wlwwBarScroll;
+            _wlBar.Scroll += wlwwBarScroll;
+
+            //LoadRectanglesFromConfig("0,1024,3071,1024");
         }
 
-        /// <summary>
-        /// 更新图片考虑窗口技术
-        /// </summary>
-        public void UpdataImage(HObject image, bool useWLTechnology = false, int wl = 0, int ww = 0)
+        // 固定框
+        // 从配置文件加载矩形
+        public void LoadRectanglesFromConfig(string configRectangles)
         {
-            if (image == null) return;
-            HObject imageByWL = null;
-            //HOperatorSet.GenEmptyObj(out HObject imageByWL);
-            if (useWLTechnology)
+            var rects = new List<Rectangle>();
+
+            // 从配置文件加载矩形框信息
+            if (!string.IsNullOrEmpty(configRectangles))
             {
-                if (wl == 0 || ww == 0) return;
-                //imageByWL.Dispose();
-                UseWLForImage(image, out imageByWL, wl, ww);
-            }
-            var imgShow = imageByWL ?? image;
-            ShowingImage = imgShow.Clone();
-            ShowImage(imgShow);
-        }
-
-        public void UseWLForImage(HObject ho_Image, out HObject ho_ImageSetWL, int wl, int ww)
-        {
-            ho_ImageSetWL = null;
-            //HOperatorSet.GenEmptyObj(out HObject imageCopy);
-            //imageCopy.Dispose();
-            HOperatorSet.CopyImage(ho_Image, out HObject imageCopy);
-            HOperatorSet.GetImagePointer1(imageCopy, out var ptrImage, out HTuple type1, out var img_width, out var img_height);
-
-            short[] img_data = new short[img_width * img_height];
-            Marshal.Copy(ptrImage, img_data, 0, img_data.Length);
-            SetImageWL(ptrImage, img_data, img_width, img_height, out ho_ImageSetWL, wl, ww);
-            imageCopy.Dispose();
-        }
-
-        private static void SetImageWL(IntPtr ptrImage, short[] img_data, int img_width, int img_height, out HObject ho_ImageSetWL, int wl, int ww)
-        {
-            var min = wl - ww / 2.0;
-            var max = wl + ww / 2.0;
-            var len = img_width * img_height;
-            short[] data = new short[img_data.Length];
-
-            Parallel.ForEach(Partitioner.Create(0, len), (range) =>
-            {
-                for (int i = range.Item1; i < range.Item2; i++)
+                var rectArray = configRectangles.Split(';');
+                foreach (var rect in rectArray)
                 {
-                    var val = (ushort)img_data[i];
-
-                    if (val < min) val = 0;
-                    else if (val > max) val = 255;
-                    else val = (ushort)((val - min) / ww * 255);
-                    data[i] = (short)val;
+                    var values = rect.Split(',');
+                    if (values.Length == 4)
+                    {
+                        var rectangle = new Rectangle(
+                            int.Parse(values[0]),
+                            int.Parse(values[1]),
+                            int.Parse(values[2]),
+                            int.Parse(values[3])
+                        );
+                        rects.Add(rectangle);
+                    }
                 }
-            });
-            Marshal.Copy(data, 0, ptrImage, img_data.Length);
-            HOperatorSet.GenImage1(out ho_ImageSetWL, "uint2", img_width, img_height, ptrImage);
+            }
+
+            _hWindowTools.LoadFixedRectangles(rects);
         }
 
-        private void ShowImage(HObject img)
+        // 打开图像
+        public void OpenImage()
         {
-            if (img == null) return;
-            HOperatorSet.ClearWindow(hw_ctrl.HalconWindow);
-            HOperatorSet.DispObj(img, hw_ctrl.HalconWindow);
+            string filename = "";
+            OpenFileDialog dlg = new OpenFileDialog();
+            //dlg.Filter = "Tiff文件|*.tif|Bmp文件|*.bmp|Erdas img文件|*.img|EVNI文件|*.hdr|jpeg文件|*.jpg|raw文件|*.raw|vrt文件|*.vrt|所有文件|*.*";
+            //dlg.Filter = "Tiff文件|*.tif|Png文件|*.png|Bmp文件|*.bmp|jpeg文件|*.jpg";
+            //dlg.Filter = "图像文件(*.tif;*.png;*.bmp;*.jpg)|*.tif;*.png;*.bmp;*.jpg|所有文件(*.*)|*.*";
+            dlg.Filter = "图像文件(*.tif;*.png;*.bmp;*.jpg)|*.tif;*.png;*.bmp;*.jpg";
+            dlg.FilterIndex = 0;
+            dlg.Title = "打开图像";
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                filename = dlg.FileName;
+            }
+            if (filename == "")
+            {
+                return;
+            }
+
+            OpenImage(filename);
         }
 
-        /// <summary>
-        /// 自适应显示图片
-        /// </summary>
-        public void DispImageFit(HObject image)
+        public void OpenImage(string fileName)
         {
-            if (image == null ) return;
-            ShowingImage = image;
             try
             {
-                HOperatorSet.GetImageSize(image, out HTuple img_width, out HTuple img_height);
-                //int win_width = hw_ctrl.ImagePart.Width;
-                //int win_height = hw_ctrl.ImagePart.Height;
-                int win_width = hw_ctrl.Size.Width;
-                int win_height = hw_ctrl.Size.Height;
-
-                double w_ratio = 1.0 * img_width / win_width;
-                double h_ratio = 1.0 * img_height / win_height;
-                double ratio = (w_ratio > h_ratio ? w_ratio : h_ratio);
-                double column1 = -(ratio * win_width - img_width) / 2.0;
-                double row1 = -(ratio * win_height - img_height) / 2.0;
-                double column2 = (ratio * win_width - img_width) / 2.0 + img_width;
-                double row2 = (ratio * win_height - img_height) / 2.0 + img_height;
-
-                HOperatorSet.SetPart(hw_ctrl.HalconWindow, row1, column1, row2, column2);
-                ShowImage(image);
-
-                DrawAllRectangles();
+                // 加载图像
+                _hWindowTools.OpenImage(fileName);
             }
-            catch (Exception ex)
+            catch (HalconException ex)
             {
-                //LogHelper.Error(ex.Message);
+                MessageBox.Show("Error loading image: " + ex.Message);
             }
         }
 
-        /// <summary>
-        /// 缩放图片
-        /// </summary>
-        public void DispImageZoom(HTuple mode)
+
+        // 鼠标 左键按下
+        private void HWindowControl_HMouseDown(object sender, HMouseEventArgs e)
         {
-            if (ShowingImage == null) return;
-            hw_ctrl.HalconWindow.GetMpositionSubPix(out var Mouse_row, out var Mouse_col, out _);
-            HOperatorSet.GetImageSize(ShowingImage, out var hv_imageWidth, out var hv_imageHeight);
-            try
+            if (e.Button == MouseButtons.Left)
             {
-                hw_ctrl.HalconWindow.GetPart(out current_beginRow, out current_beginCol, out current_endRow, out current_endCol);
-                if (mode > 0)//图像放大,当窗口过小时可能出现除数为0
+                if (Control.ModifierKeys == Keys.Shift) // 按住 Shift 键时开始绘制矩形
                 {
-                    zoom_beginRow = (int)(current_beginRow + (Mouse_row - current_beginRow) * 0.300d);
-                    zoom_beginCol = (int)(current_beginCol + (Mouse_col - current_beginCol) * 0.300d);
-                    zoom_endRow = (int)(current_endRow - (current_endRow - Mouse_row) * 0.300d);
+                    if (_noneRadioButton.Checked) return;
+                    isDrawing = true;
+                    startPoint = new Point((int)e.X, (int)e.Y);
                 }
-                else//图像缩小
+                else
                 {
-                    zoom_beginRow = (int)(Mouse_row - (Mouse_row - current_beginRow) / 0.700d);
-                    zoom_beginCol = (int)(Mouse_col - (Mouse_col - current_beginCol) / 0.700d);
-                    zoom_endRow = (int)(Mouse_row + (current_endRow - Mouse_row) / 0.700d);
+                    mouseLeftButDown = true;
+                    _hWindowControl.HalconWindow.GetMposition(out mouseLeftDownRow, out mouseLeftDownCol, out _);
+                    if (e.Clicks == 2) _hWindowTools.DispImageFit();
                 }
-
-                var hw_width = hw_ctrl.WindowSize.Width;
-                var hw_height = hw_ctrl.WindowSize.Height;
-                double windowPartRatio = 1.0 * hw_height / hw_width;
-                zoom_endCol = (int)((zoom_endRow - zoom_beginRow) / windowPartRatio + zoom_beginCol);
-
-                var _isOutOfArea = zoom_beginRow >= hv_imageHeight || zoom_beginCol >= hv_imageWidth || zoom_endRow <= 0 || zoom_endCol <= 0;
-                var _isOutOfSize = (zoom_endRow - zoom_beginRow) > hv_imageHeight * 20 || (zoom_endCol - zoom_beginCol) > hv_imageWidth * 20;//避免像素过小
-                var _isOutOfPixel = hw_height / (zoom_endRow - zoom_beginRow) > 400 || hw_width / (zoom_endCol - zoom_beginCol) > 400; //避免像素过大
-
-                if (_isOutOfArea || _isOutOfSize || _isOutOfPixel) return;
-
-                hw_ctrl.HalconWindow.SetPaint(new HTuple("default"));
-                hw_ctrl.HalconWindow.SetPart(zoom_beginRow, zoom_beginCol, zoom_endRow, zoom_endCol);
-
-                ShowImage(ShowingImage);
-
-                DrawAllRectangles();
             }
-            catch (Exception ex)
+        }
+
+        // 鼠标 左键松开
+        private void HWindowControl_HMouseUp(object sender, HMouseEventArgs e)
+        {
+            //鼠标左键松开
+            if (e.Button == MouseButtons.Left)
             {
-                //LogHelper.Error(ex.Message);
+                if (isDrawing)
+                {
+                    isDrawing = false;
+                    if (_autoWLWWRadioButton.Checked)
+                    {
+                        bool ret = _hWindowTools.CalcAutoWLWW(currentRectangle, out int wl, out int ww);
+                        if (ret)
+                        {
+                            UpdataWLWW(wl, ww);
+                            _hWindowTools.UpdataImageByWLWW(wl, ww);
+                        }
+                    }
+                    else
+                    {
+                        //hWindowTool.AddUserRectangle(currentRectangle);
+                    }
+                }
+                else
+                {
+                    mouseLeftButDown = false;
+                    try
+                    {
+                        _hWindowControl.HalconWindow.GetMposition(out _, out _, out _);
+                    }
+                    catch { }
+                }
             }
         }
 
-        /// <summary>
-        /// 移动图片
-        /// </summary>
-        internal void DispImageMove(int btn_down_row, int btn_down_col)
+        // 鼠标 移动
+        private void HWindowControl_HMouseMove(object sender, HMouseEventArgs e)
         {
-            if (ShowingImage == null) return;
-            try
+            // 鼠标按下时进行移动
+            if (isDrawing)
             {
-                hw_ctrl.HalconWindow.GetPart(out var current_beginRow, out var current_beginCol, out var current_endRow, out int current_endCol);
-                hw_ctrl.HalconWindow.GetMposition(out var mouse_post_row, out var mouse_pose_col, out _);
-                hw_ctrl.HalconWindow.SetPaint(new HTuple("default"));
-                hw_ctrl.HalconWindow.SetPart(current_beginRow + btn_down_row - mouse_post_row, current_beginCol + btn_down_col - mouse_pose_col, current_endRow + btn_down_row - mouse_post_row, current_endCol + btn_down_col - mouse_pose_col);
-
-                ShowImage(ShowingImage);
-
-                DrawAllRectangles();
+                currentRectangle = new Rectangle(
+                    (int)Math.Min(startPoint.X, e.X),
+                    (int)Math.Min(startPoint.Y, e.Y),
+                    (int)Math.Abs(startPoint.X - e.X),
+                    (int)Math.Abs(startPoint.Y - e.Y)
+                );
+                _hWindowTools.DrawAll();
+                _hWindowTools.DrawRectangle(currentRectangle);
             }
-            catch (Exception ex)
+            else if (mouseLeftButDown)
             {
-                //当移动鼠标超出窗口会报错
-                //System.Windows.MessageBox.Show(ex.Message);
+                _hWindowTools.DispImageMove(mouseLeftDownRow, mouseLeftDownCol);
             }
-        }
-
-        public void OpenImage(string imgPath)
-        {
-            HOperatorSet.ReadImage(out origImage, imgPath);
-            DispImageFit(origImage);
-        }
-
-        public void LoadRectanglesFromConfig(List<Rectangle> rects)
-        {
-            rectanglesFromConfig = rects;
-            DrawAllRectangles();
-        }
-
-        public void AddUserRectangle(Rectangle rect)
-        {
-            userRectangles.Add(rect);
-            DrawAllRectangles();
-        }
-
-        public void DrawAllRectangles()
-        {
-            if (ShowingImage == null) return;
-
-            HOperatorSet.ClearWindow(hw_ctrl.HalconWindow);
-            HOperatorSet.DispObj(ShowingImage, hw_ctrl.HalconWindow);
-
-            foreach (var rect in rectanglesFromConfig)
+            else
             {
-                DrawRectangle(rect);
-            }
-
-            foreach (var rect in userRectangles)
-            {
-                DrawRectangle(rect);
+                var (r, mousePostRow, mousePostCol, grayValue) = _hWindowTools.GetCurrentMousePosAndGrayval();
+                if (r)
+                {
+                    //ShowImageInfo?.Invoke(mousePostCol.ToString(CultureInfo.InvariantCulture), mousePostRow.ToString(CultureInfo.InvariantCulture), grayValue.ToString());
+                    ShowImageInfo?.Invoke(mousePostCol, mousePostRow, grayValue);
+                }
             }
         }
 
-        public void DrawRectangle(Rectangle rect)
+        // 鼠标 滚轮
+        private void HWindowControl_HMouseWheel(object sender, HMouseEventArgs e)
         {
-            //double row1 = rect.Top;
-            //double col1 = rect.Left;
-            //double row2 = rect.Bottom;
-            //double col2 = rect.Right;
-            //double row = (row1 + row2) / 2;
-            //double col = (col1 + col2) / 2;
-            //double phi = 0.0; // 没有旋转角度
-            //double length1 = Math.Abs(row2 - row1) / 2;
-            //double length2 = Math.Abs(col2 - col1) / 2;
+            HTuple mode = e.Delta;
+            _hWindowTools.DispImageZoom(mode);
+        }
 
-            //HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
-            //HOperatorSet.GenRectangle2(out HObject rectOut, row, col, phi, length1, length2);
-            //HOperatorSet.DispObj(rectOut, hw_ctrl.HalconWindow);
+        // 窗宽窗位 滚动
+        private void wlwwBarScroll(object sender, EventArgs e)
+        {
+            var wl = _wlBar.Value;
+            var ww = _wwBar.Value;
+            _wlTextBox.Text = wl.ToString();
+            _wwTextBox.Text = ww.ToString();
+            _hWindowTools.UpdataImageByWLWW(wl, ww);
+        }
 
-            HOperatorSet.SetColor(hw_ctrl.HalconWindow, "red");
-            HOperatorSet.SetDraw(hw_ctrl.HalconWindow, IsFilled ? "fill" : "margin"); // 根据标志设置绘制模式
-            HOperatorSet.DispRectangle1(hw_ctrl.HalconWindow, rect.Top, rect.Left, rect.Bottom, rect.Right);
+        // 切换填充模式
+        private void button2_Click(object sender, EventArgs e)
+        {
+            _hWindowTools.IsFilled = !_hWindowTools.IsFilled; // 切换实心和空心模式
+            //btnToggleFillMode.Text = hWindowTool.IsFilled ? "切换到空心模式" : "切换到实心模式"; // 更新按钮文本
+        }
 
+
+        // 更新窗宽窗位到界面，-1表示保持原数值
+        private void UpdataWLWW(int wl, int ww)
+        {
+            if (wl != -1)
+            {
+                if (wl < _wlBar.Minimum)
+                {
+                    wl = _wlBar.Minimum;
+                }
+                else if (wl > _wlBar.Maximum)
+                {
+                    wl = _wlBar.Maximum;
+                }
+                _wlTextBox.Text = wl.ToString();
+                _wlBar.Value = wl;
+            }
+
+            if (ww != -1)
+            {
+                if (ww < _wwBar.Minimum)
+                {
+                    ww = _wwBar.Minimum;
+                }
+                else if (ww > _wwBar.Maximum)
+                {
+                    ww = _wwBar.Maximum;
+                }
+                _wwTextBox.Text = ww.ToString();
+                _wwBar.Value = ww;
+            }
+        }
+
+        public (bool, double, double) FitSmallestCircle()
+        {
+            return _hWindowTools.FitSmallestCircle();
         }
     }
-
 }
