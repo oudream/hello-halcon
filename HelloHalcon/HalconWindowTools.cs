@@ -73,10 +73,10 @@ namespace HelloHalcon
             _showingImage = _origImage.Clone();
             DispImageFit();
 
-            if (HalconHelper.GetImageInfo(_origImage, out int imgWidth, out int imgHeight, out int imgChannels, out int imgDepth))
-            {
-                Console.WriteLine($"图像宽度：{imgWidth} 图像高度：{imgHeight} 图像通道数：{imgChannels} 图像位深：{imgDepth}");
-            }
+            //if (HalconHelper.GetImageInfo(_origImage, out int imgWidth, out int imgHeight, out int imgChannels, out int imgDepth))
+            //{
+            //    Console.WriteLine($"图像宽度：{imgWidth} 图像高度：{imgHeight} 图像通道数：{imgChannels} 图像位深：{imgDepth}");
+            //}
         }
 
         // 通过调整窗宽窗位来更新图像
@@ -392,10 +392,10 @@ namespace HelloHalcon
             try
             {
                 _hWindowControl.HalconWindow.SetDraw("margin");
-                double row_1 = currentRectangle.X;
-                double column_1 = currentRectangle.Y;
-                double row_2 = currentRectangle.X + currentRectangle.Width;
-                double column_2 = currentRectangle.Y + currentRectangle.Height;
+                double column_1 = currentRectangle.X;
+                double row_1 = currentRectangle.Y;
+                double column_2 = currentRectangle.X + currentRectangle.Width;
+                double row_2 = currentRectangle.Y + currentRectangle.Height;
                 //hw_ctrl.HalconWindow.DrawRectangle1(out double row_1, out double column_1, out double row_2, out double column_2);
                 HOperatorSet.GenRectangle1(out HObject RectOut, row_1, column_1, row_2, column_2);
                 //HOperatorSet.DispObj(RectOut, _hWindowControl.HalconWindow);
