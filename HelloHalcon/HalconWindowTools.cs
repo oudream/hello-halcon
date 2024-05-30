@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -35,10 +36,17 @@ namespace HelloHalcon
         private List<string> _drawObjectInfoList;
         // 拟合的最小外接圆
         private HObject _minCircle;
+        private double _circleCenterOffsetX;
+        private double _circleCenterOffsetY;
+        private double _circleRadius;
 
         private HWindowControl _hWindowControl;
 
-        public bool IsFilled { get; set; } = false; // 添加布尔标志以指示当前的绘制模式
+        // 添加布尔标志以指示当前的绘制模式
+        public bool IsFilled { get; set; } = false;
+
+        // 添加布尔标志以指示是否绘制中心十字
+        public bool DrawCenterCross { get; set; } = false;
 
         public HWindowControl GetHWindowControl() => _hWindowControl;
 
@@ -71,12 +79,66 @@ namespace HelloHalcon
             HOperatorSet.ReadImage(out _origImage, imgPath);
             _showingImage?.Dispose();
             _showingImage = _origImage.Clone();
-            DispImageFit();
 
-            //if (HalconHelper.GetImageInfo(_origImage, out int imgWidth, out int imgHeight, out int imgChannels, out int imgDepth))
-            //{
-            //    Console.WriteLine($"图像宽度：{imgWidth} 图像高度：{imgHeight} 图像通道数：{imgChannels} 图像位深：{imgDepth}");
-            //}
+            ImageChanged();
+
+            DispImageFit();
+        }
+
+        // image的生命周期交给 _originalImage
+        public void OpenImage(HObject image, int wl, int ww)
+        {
+            if (image == null) return;
+
+            // 打印图像通道数、位深度、数据类型、行列
+            //Console.WriteLine($"通道数:{imageOrg.Channels()} 位深度:{imageOrg.Depth()} 数据类型:{imageOrg.Type()} 行列:{imageOrg.Rows} x {imageOrg.Cols}");
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            HObject imageByWL = null;
+            try
+            {
+                if (wl == 0 || ww == 0)
+                {
+                    imageByWL = image.Clone();
+                }
+                else
+                {
+                    UseWLForImage(image, out imageByWL, wl, ww);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"窗宽窗位设置失败，{ex.Message}");
+            }
+
+            if (imageByWL == null) return;
+
+            _origImage?.Dispose();
+            _origImage = image;
+            _showingImage?.Dispose();
+            _showingImage = imageByWL;
+
+            ImageChanged();
+
+            ReShowDrawALL();
+
+            stopwatch.Stop();
+            var costImageProcessing = stopwatch.ElapsedMilliseconds;
+            Console.WriteLine($"图像调试 took OpenImage={costImageProcessing} ms");
+        }
+
+        private void ImageChanged()
+        {
+            if (_minCircle != null)
+            {
+                FitSmallestCircle();
+            }
+        }
+
+        // 获取图像基本信息
+        public bool GetImageInfo(out int width, out int height, out int channels, out int bitDepth)
+        {
+            return HalconHelper.GetImageInfo(_origImage, out width, out height, out channels, out bitDepth, out _);
         }
 
         // 通过调整窗宽窗位来更新图像
@@ -85,15 +147,19 @@ namespace HelloHalcon
             if (_origImage == null) return;
             if (wl == 0 || ww == 0) return;
 
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
             UseWLForImage(_origImage, out HObject imageByWL, wl, ww);
             _showingImage?.Dispose();
             _showingImage = imageByWL;
-           
-            // 显示图像
-            ShowImage();
-           
-            // 绘制所有其他对象
-            DrawAll();
+
+            ImageChanged();
+
+            ReShowDrawALL();
+
+            stopwatch.Stop();
+            var costCircleFitting = stopwatch.ElapsedMilliseconds;
+            Console.WriteLine($"图像调试 took ImageChanged={costCircleFitting} ms");
         }
 
         // 设置窗宽窗位，返回新的图像 ho_ImageSetWL
@@ -132,18 +198,10 @@ namespace HelloHalcon
             HOperatorSet.GenImage1(out ho_ImageSetWL, "uint2", img_width, img_height, ptrImage);
         }
 
-        // 显示图像
-        private void ShowImage()
-        {
-            if (_showingImage == null) return;
-            HOperatorSet.ClearWindow(_hWindowControl.HalconWindow);
-            HOperatorSet.DispObj(_showingImage, _hWindowControl.HalconWindow);
-        }
-
         // 自适应显示图片
         public void DispImageFit()
         {
-            if (_showingImage == null ) return;
+            if (_showingImage == null) return;
             try
             {
                 HOperatorSet.GetImageSize(_showingImage, out HTuple img_width, out HTuple img_height);
@@ -161,14 +219,10 @@ namespace HelloHalcon
                 double row2 = (ratio * win_height - img_height) / 2.0 + img_height;
 
                 HOperatorSet.SetPart(_hWindowControl.HalconWindow, row1, column1, row2, column2);
-                
-                // 显示图像
-                ShowImage();
 
-                // 绘制所有其他对象
-                DrawAll();
+                ReShowDrawALL();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //LogHelper.Error(ex.Message);
             }
@@ -210,13 +264,9 @@ namespace HelloHalcon
                 _hWindowControl.HalconWindow.SetPaint(new HTuple("default"));
                 _hWindowControl.HalconWindow.SetPart(_zoomBeginRow, _zoomBeginCol, _zoomEndRow, _zoomEndCol);
 
-                // 显示图像
-                ShowImage();
-
-                // 绘制所有其他对象
-                DrawAll();
+                ReShowDrawALL();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //LogHelper.Error(ex.Message);
             }
@@ -233,13 +283,9 @@ namespace HelloHalcon
                 _hWindowControl.HalconWindow.SetPaint(new HTuple("default"));
                 _hWindowControl.HalconWindow.SetPart(current_beginRow + btn_down_row - mouse_post_row, current_beginCol + btn_down_col - mouse_pose_col, current_endRow + btn_down_row - mouse_post_row, current_endCol + btn_down_col - mouse_pose_col);
 
-                // 显示图像
-                ShowImage();
-
-                // 绘制所有其他对象
-                DrawAll();
+                ReShowDrawALL();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //当移动鼠标超出窗口会报错
                 //System.Windows.MessageBox.Show(ex.Message);
@@ -250,23 +296,40 @@ namespace HelloHalcon
         public void LoadFixedRectangles(List<Rectangle> rects)
         {
             _drawFixedRectangles = rects;
-            DrawAll();
+
+            ReShowDrawALL();
         }
 
         // 添加用户矩形
         public void AddUserRectangle(Rectangle rect)
         {
             _drawUserRectangles.Add(rect);
+
+            ReShowDrawALL();
+        }
+
+        // 清除显示，重新显示图，画所有应该画的对象
+        public void ReShowDrawALL()
+        {
+            // 显示图像
+            ShowImage();
+
+            // 绘制所有其他对象
             DrawAll();
         }
 
-        // 绘制所有
-        public void DrawAll()
+        // 显示图像
+        private void ShowImage()
         {
             if (_showingImage == null) return;
-
             HOperatorSet.ClearWindow(_hWindowControl.HalconWindow);
             HOperatorSet.DispObj(_showingImage, _hWindowControl.HalconWindow);
+        }
+
+        // 绘制所有
+        private void DrawAll()
+        {
+            if (_showingImage == null) return;
 
             // 绘制固定矩形
             foreach (var rect in _drawFixedRectangles)
@@ -294,8 +357,78 @@ namespace HelloHalcon
             {
                 HOperatorSet.SetColor(_hWindowControl.HalconWindow, "red");
                 HOperatorSet.DispObj(_minCircle, _hWindowControl.HalconWindow);
+                DrawCrossAtCircleCenter(_minCircle, "red");
+                DisplayCircleInfo();
+            }
+
+            // 绘制中心十字虚线（如果开关标志为 true）
+            if (DrawCenterCross)
+            {
+                HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+                int centerX = width / 2;
+                int centerY = height / 2;
+
+                // 设置颜色和线型
+                HOperatorSet.SetColor(_hWindowControl.HalconWindow, "yellow");
+                HOperatorSet.SetLineStyle(_hWindowControl.HalconWindow, new HTuple(5, 5)); // 5像素的虚线
+
+                // 绘制水平线
+                HOperatorSet.DispLine(_hWindowControl.HalconWindow, centerY, 0, centerY, width);
+
+                // 绘制垂直线
+                HOperatorSet.DispLine(_hWindowControl.HalconWindow, 0, centerX, height, centerX);
+
+                // 恢复默认线型
+                HOperatorSet.SetLineStyle(_hWindowControl.HalconWindow, new HTuple());
             }
         }
+
+        // 绘制圆心十字线
+        private void DrawCrossAtCircleCenter(HObject circle, string color)
+        {
+            // 获取圆心坐标和半径
+            HOperatorSet.AreaCenter(circle, out HTuple area, out HTuple row, out HTuple column);
+            HOperatorSet.SmallestCircle(circle, out _, out _, out HTuple radius);
+
+            // 设置颜色和线型
+            HOperatorSet.SetColor(_hWindowControl.HalconWindow, color);
+            HOperatorSet.SetLineStyle(_hWindowControl.HalconWindow, new HTuple(5, 5)); // 5像素的虚线
+
+            // 计算十字线长度为半径的三分之一
+            double crossLength = radius.D / 3.0;
+
+            // 绘制水平线
+            HOperatorSet.DispLine(_hWindowControl.HalconWindow, row, column - crossLength, row, column + crossLength);
+
+            // 绘制垂直线
+            HOperatorSet.DispLine(_hWindowControl.HalconWindow, row - crossLength, column, row + crossLength, column);
+
+            // 恢复默认线型
+            HOperatorSet.SetLineStyle(_hWindowControl.HalconWindow, new HTuple());
+        }
+
+        // 显示圆心偏移和半径信息
+        private void DisplayCircleInfo()
+        {
+            // 获取圆心坐标
+            HOperatorSet.AreaCenter(_minCircle, out HTuple area, out HTuple row, out HTuple column);
+
+            string info = $"X: {_circleCenterOffsetX:F2}, Y: {_circleCenterOffsetY:F2}, R: {_circleRadius:F2}";
+
+            // 设置显示文字的位置为圆心的右下方
+            HOperatorSet.SetTposition(_hWindowControl.HalconWindow, row + 20, column + 20);
+
+            // 查询当前窗口支持的字体
+            HOperatorSet.QueryFont(_hWindowControl.HalconWindow, out HTuple font);
+            string fontWithSize = font.TupleSelect(0) + "-14"; // 设置字体大小为14
+
+            // 设置字体
+            HOperatorSet.SetFont(_hWindowControl.HalconWindow, fontWithSize);
+
+            // 显示信息
+            HOperatorSet.WriteString(_hWindowControl.HalconWindow, info);
+        }
+
 
         // 绘制矩形
         public void DrawRectangle(Rectangle rect)
@@ -369,6 +502,12 @@ namespace HelloHalcon
             var rX = hv_Column.D;
             var rY = hv_Row.D;
             //System.Console.WriteLine("圆心坐标: X = " + hv_Column.D + ", Y = " + hv_Row.D);
+
+            // 计算偏移值
+            HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+            _circleCenterOffsetX = rX - width.D / 2;
+            _circleCenterOffsetY = rY - height.D / 2;
+            _circleRadius = hv_Radius.D;
 
             ho_Region.Dispose();
             ho_RegionClosing.Dispose();
@@ -446,13 +585,9 @@ namespace HelloHalcon
                     HOperatorSet.SetPart(_hWindowControl.HalconWindow, -rowOffset, -colOffset, rowOffset + imgHeight - 1, colOffset + imgWidth - 1);
                 }
 
-                // 显示图像
-                ShowImage();
-
-                // 绘制所有其他对象
-                DrawAll();
+                ReShowDrawALL();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 捕捉并记录异常
                 // LogHelper.Error(ex.Message);
@@ -487,13 +622,9 @@ namespace HelloHalcon
                 // 设置窗口显示的图像区域
                 HOperatorSet.SetPart(_hWindowControl.HalconWindow, row1, column1, row2, column2);
 
-                // 显示图像
-                ShowImage();
-
-                // 绘制所有其他对象
-                DrawAll();
+                ReShowDrawALL();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 捕捉并记录异常
                 // LogHelper.Error(ex.Message);
@@ -522,7 +653,7 @@ namespace HelloHalcon
                     HOperatorSet.GetGrayval(_origImage, mousePostRow, mousePostCol, out grayValue);
                     grayValue = grayValue[0];
                 }
-                
+
                 return (true, mousePostRow, mousePostCol, grayValue.I);
             }
             catch { }
@@ -534,8 +665,7 @@ namespace HelloHalcon
         {
             _minCircle = null;
 
-            // 绘制所有其他对象
-            DrawAll();
+            ReShowDrawALL();
         }
 
         // 清除固定的矩形
@@ -543,8 +673,7 @@ namespace HelloHalcon
         {
             _drawFixedRectangles.Clear();
 
-            // 绘制所有其他对象
-            DrawAll();
+            ReShowDrawALL();
         }
 
         // 清除全部框、要绘制的对象
@@ -564,8 +693,79 @@ namespace HelloHalcon
             // 清除拟合的最小圆
             _minCircle = null;
 
-            // 绘制所有其他对象
-            DrawAll();
+            DrawCenterCross = false;
+
+            ReShowDrawALL();
+        }
+
+        public (HTuple, HTuple, HTuple, HTuple, HTuple) GetCirclePoint(HWindowControl hWindowTool)
+        {
+            if (_showingImage == null || _origImage == null)
+            {
+                return (new HTuple(), new HTuple(), new HTuple(), new HTuple(), new HTuple());
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            // Local iconic variables
+            HObject ho_Image1, ho_Image3, ho_Image = null;
+            HObject ho_Region, ho_ConnectedRegions, ho_RegionOpening;
+            HObject ho_SortedRegions, ho_ObjectSelected, ho_Circle;
+
+            // Local control variables
+            HTuple hv_Area = new HTuple(), hv_Row = new HTuple(), hv_Column = new HTuple();
+            HTuple hv_Row2 = new HTuple(), hv_Column2 = new HTuple(), hv_Radius = new HTuple();
+            // Initialize local and output iconic variables 
+            HOperatorSet.GenEmptyObj(out ho_Image1);
+            HOperatorSet.GenEmptyObj(out ho_Image3);
+            HOperatorSet.GenEmptyObj(out ho_Image);
+            HOperatorSet.GenEmptyObj(out ho_Region);
+            HOperatorSet.GenEmptyObj(out ho_ConnectedRegions);
+            HOperatorSet.GenEmptyObj(out ho_RegionOpening);
+            //HOperatorSet.GenEmptyObj(out ho_SortedRegions);
+            HOperatorSet.GenEmptyObj(out ho_ObjectSelected);
+            HOperatorSet.GenEmptyObj(out ho_Circle);
+            ho_Image.Dispose();
+            ho_Image = new HObject(_showingImage);
+
+            ho_Region.Dispose();
+            //HOperatorSet.Threshold(ho_Image, out ho_Region, 0, ballGray);//22000
+            HOperatorSet.BinaryThreshold(ho_Image, out ho_Region, "max_separability", "dark", out _);
+            //if (Form1.form.hWindowTool.detect_steel_ball)
+            //{
+            //HOperatorSet.DispObj(ho_Region, hWindowTool.HalconWindow);
+            //}
+            ho_ConnectedRegions.Dispose();
+            HOperatorSet.Connection(ho_Region, out ho_ConnectedRegions);
+            ho_RegionOpening.Dispose();
+            HOperatorSet.OpeningCircle(ho_ConnectedRegions, out ho_RegionOpening, 10.5);
+
+            //选出所有圆形
+            HOperatorSet.SelectShape(ho_RegionOpening, out ho_RegionOpening, "roundness", "and", 0.8, 2);
+            //排序
+            //ho_SortedRegions.Dispose();
+            HOperatorSet.SortRegion(ho_RegionOpening, out ho_SortedRegions, "upper_left", "true", "row");
+            //获取圆心和半径
+            hv_Area.Dispose(); hv_Row.Dispose(); hv_Column.Dispose();
+            HOperatorSet.AreaCenter(ho_SortedRegions, out hv_Area, out hv_Row, out hv_Column);
+            HOperatorSet.SmallestCircle(ho_SortedRegions, out hv_Row2, out hv_Column2, out hv_Radius);
+
+            HOperatorSet.DispObj(ho_SortedRegions, hWindowTool.HalconWindow);
+
+            ho_Image1.Dispose();
+            ho_Image3.Dispose();
+            ho_Image.Dispose();
+            ho_Region.Dispose();
+            ho_ConnectedRegions.Dispose();
+            ho_RegionOpening.Dispose();
+            ho_SortedRegions.Dispose();
+            ho_ObjectSelected.Dispose();
+            hv_Area.Dispose();
+
+            stopwatch.Stop();
+            Console.WriteLine($"Cost Time: {stopwatch.ElapsedMilliseconds} MS");
+
+            return (hv_Row, hv_Column, hv_Row2, hv_Column2, hv_Radius);
         }
     }
 

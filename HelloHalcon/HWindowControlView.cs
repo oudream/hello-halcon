@@ -5,8 +5,8 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace HelloHalcon
@@ -17,11 +17,11 @@ namespace HelloHalcon
         public ShowImageInfoDelegate ShowImageInfo;
 
         HWindowControl _hWindowControl;
-        CheckBox _winTechnologyCheckBox;
-        TrackBar _wlBar;
-        TextBox _wlTextBox;
-        TrackBar _wwBar;
-        TextBox _wwTextBox;
+        CheckBox _wlwwCheckBox;
+        TrackBar _wlTrackBar;
+        Label _wlLabel;
+        TrackBar _wwTrackBar;
+        Label _wwLabel;
         RadioButton _noneRadioButton;
         RadioButton _autoWLWWRadioButton;
 
@@ -34,15 +34,17 @@ namespace HelloHalcon
         private Point startPoint;
         private Rectangle currentRectangle;
         private bool isDrawing;
-        public HWindowControlView(HalconWindowTools halconWindowTools, CheckBox winTechnologyCheckBox, TrackBar wlBar, TextBox wlTextBox, TrackBar wwBar, TextBox wwTextBox, RadioButton noneRadioButton, RadioButton autoWLWWRadioButton)
+        private string _currentImageFilePath;
+
+        public HWindowControlView(HalconWindowTools halconWindowTools, CheckBox wlwwCheckBox, TrackBar wlBar, Label wlLabel, TrackBar wwBar, Label wwLabel, RadioButton noneRadioButton, RadioButton autoWLWWRadioButton)
         {
             _hWindowTools = halconWindowTools;
 
-            _winTechnologyCheckBox = winTechnologyCheckBox;
-            _wlBar = wlBar;
-            _wlTextBox = wlTextBox;
-            _wwBar = wwBar;
-            _wwTextBox = wwTextBox;
+            _wlwwCheckBox = wlwwCheckBox;
+            _wlTrackBar = wlBar;
+            _wlLabel = wlLabel;
+            _wwTrackBar = wwBar;
+            _wwLabel = wwLabel;
             _noneRadioButton = noneRadioButton;
             _autoWLWWRadioButton = autoWLWWRadioButton;
 
@@ -52,10 +54,48 @@ namespace HelloHalcon
             _hWindowControl.HMouseUp += HWindowControl_HMouseUp;
             _hWindowControl.HMouseWheel += HWindowControl_HMouseWheel;
 
-            _wlBar.Scroll += wlwwBarScroll;
-            _wlBar.Scroll += wlwwBarScroll;
+            _wlTrackBar.Scroll += wlwwTrackBarScroll;
+            _wlTrackBar.Scroll += wlwwTrackBarScroll;
+
+            _wlwwCheckBox.Click += WLWWCheckBox_Click;
 
             //LoadRectanglesFromConfig("0,1024,3071,1024");
+        }
+
+        // 窗宽窗位显示
+        private void WLWWCheckBox_Click(object sender, EventArgs e)
+        {
+            if (_wlwwCheckBox.Checked && _hWindowTools.IsNullImage())
+            {
+                _wlwwCheckBox.Checked = false;
+                return;
+            }
+
+            EnableWLWW(_wlwwCheckBox.Checked);
+        }
+
+        private void EnableWLWW(bool wlwwEnabled)
+        {
+            _wlTrackBar.Visible = wlwwEnabled;
+            _wwTrackBar.Visible = wlwwEnabled;
+            if (wlwwEnabled)
+            {
+                //AdjustControlsInPanel(wwTrackBar, wlTrackBar, imagePanel);
+                _hWindowTools.UpdataImageByWLWW((int)_wlTrackBar.Value, (int)_wwTrackBar.Value);
+                _wlLabel.Visible = true;
+                _wwLabel.Visible = true;
+                _autoWLWWRadioButton.Enabled = true;
+                _autoWLWWRadioButton.Checked = true;
+            }
+            else
+            {
+                // 重置窗宽窗
+                _hWindowTools.UpdataImageByWLWW(0, 0);
+                _wlLabel.Visible = false;
+                _wwLabel.Visible = false;
+                _noneRadioButton.Checked = true;
+                _autoWLWWRadioButton.Enabled = false;
+            }
         }
 
         // 固定框
@@ -116,6 +156,24 @@ namespace HelloHalcon
             {
                 // 加载图像
                 _hWindowTools.OpenImage(fileName);
+                _currentImageFilePath = fileName;
+
+                if (_hWindowTools.GetImageInfo(out int imgWidth, out int imgHeight, out int imgChannels, out int imgBigDepth))
+                {
+                    if (imgChannels == 1 && imgBigDepth == 16)
+                    {
+                        _wlwwCheckBox.Enabled = true;
+                        _wlwwCheckBox.Visible = true;
+                        _wlwwCheckBox.Checked = true;
+                    }
+                    else
+                    {
+                        _wlwwCheckBox.Enabled = false;
+                        _wlwwCheckBox.Visible = false;
+                        _wlwwCheckBox.Checked = false;
+                    }
+                    EnableWLWW(_wlwwCheckBox.Checked);
+                }
             }
             catch (HalconException ex)
             {
@@ -123,6 +181,38 @@ namespace HelloHalcon
             }
         }
 
+        public void OpenImage(HImage image)
+        {
+            try
+            {
+                // 加载图像
+                _hWindowTools.OpenImage(image, 0, 0);
+                _currentImageFilePath = "";
+
+                if (_hWindowTools.GetImageInfo(out int imgWidth, out int imgHeight, out int imgChannels, out int imgBigDepth))
+                {
+                    if (imgChannels == 1 && imgBigDepth == 16)
+                    {
+                        _wlwwCheckBox.Enabled = true;
+                        _wlwwCheckBox.Visible = true;
+                        _wlwwCheckBox.Checked = true;
+                    }
+                    else
+                    {
+                        _wlwwCheckBox.Enabled = false;
+                        _wlwwCheckBox.Visible = false;
+                        _wlwwCheckBox.Checked = false;
+                    }
+                    EnableWLWW(_wlwwCheckBox.Checked);
+                }
+            }
+            catch (HalconException ex)
+            {
+                MessageBox.Show("Error loading image: " + ex.Message);
+            }
+        }
+
+        public string GetCurrentImageFilePath() => _currentImageFilePath;
 
         // 鼠标 左键按下
         private void HWindowControl_HMouseDown(object sender, HMouseEventArgs e)
@@ -191,7 +281,7 @@ namespace HelloHalcon
                     (int)Math.Abs(startPoint.X - e.X),
                     (int)Math.Abs(startPoint.Y - e.Y)
                 );
-                _hWindowTools.DrawAll();
+                _hWindowTools.ReShowDrawALL();
                 _hWindowTools.DrawRectangle(currentRectangle);
             }
             else if (mouseLeftButDown)
@@ -217,12 +307,12 @@ namespace HelloHalcon
         }
 
         // 窗宽窗位 滚动
-        private void wlwwBarScroll(object sender, EventArgs e)
+        private void wlwwTrackBarScroll(object sender, EventArgs e)
         {
-            var wl = _wlBar.Value;
-            var ww = _wwBar.Value;
-            _wlTextBox.Text = wl.ToString();
-            _wwTextBox.Text = ww.ToString();
+            var wl = _wlTrackBar.Value;
+            var ww = _wwTrackBar.Value;
+            _wlLabel.Text = wl.ToString();
+            _wwLabel.Text = ww.ToString();
             _hWindowTools.UpdataImageByWLWW(wl, ww);
         }
 
@@ -239,30 +329,30 @@ namespace HelloHalcon
         {
             if (wl != -1)
             {
-                if (wl < _wlBar.Minimum)
+                if (wl < _wlTrackBar.Minimum)
                 {
-                    wl = _wlBar.Minimum;
+                    wl = _wlTrackBar.Minimum;
                 }
-                else if (wl > _wlBar.Maximum)
+                else if (wl > _wlTrackBar.Maximum)
                 {
-                    wl = _wlBar.Maximum;
+                    wl = _wlTrackBar.Maximum;
                 }
-                _wlTextBox.Text = wl.ToString();
-                _wlBar.Value = wl;
+                _wlLabel.Text = wl.ToString();
+                _wlTrackBar.Value = wl;
             }
 
             if (ww != -1)
             {
-                if (ww < _wwBar.Minimum)
+                if (ww < _wwTrackBar.Minimum)
                 {
-                    ww = _wwBar.Minimum;
+                    ww = _wwTrackBar.Minimum;
                 }
-                else if (ww > _wwBar.Maximum)
+                else if (ww > _wwTrackBar.Maximum)
                 {
-                    ww = _wwBar.Maximum;
+                    ww = _wwTrackBar.Maximum;
                 }
-                _wwTextBox.Text = ww.ToString();
-                _wwBar.Value = ww;
+                _wwLabel.Text = ww.ToString();
+                _wwTrackBar.Value = ww;
             }
         }
 
