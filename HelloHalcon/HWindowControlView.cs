@@ -2,11 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace HelloHalcon
@@ -24,19 +22,20 @@ namespace HelloHalcon
         Label _wwLabel;
         RadioButton _noneRadioButton;
         RadioButton _autoWLWWRadioButton;
+        RadioButton _findCircleAreaRadioButton;
 
-        public HalconWindowTools _hWindowTools;
+        private HalconWindowTools _hWindowTools;
 
-        public bool mouseLeftButDown;
-        private int mouseLeftDownRow;
-        private int mouseLeftDownCol;
+        private bool _mouseLeftButDown;
+        private int _mouseLeftDownRow;
+        private int _mouseLeftDownCol;
 
-        private Point startPoint;
-        private Rectangle currentRectangle;
-        private bool isDrawing;
+        private Point _startPoint;
+        private Rectangle _currentRectangle;
+        private bool _isDrawing;
         private string _currentImageFilePath;
 
-        public HWindowControlView(HalconWindowTools halconWindowTools, CheckBox wlwwCheckBox, TrackBar wlBar, Label wlLabel, TrackBar wwBar, Label wwLabel, RadioButton noneRadioButton, RadioButton autoWLWWRadioButton)
+        public HWindowControlView(HalconWindowTools halconWindowTools, CheckBox wlwwCheckBox, TrackBar wlBar, Label wlLabel, TrackBar wwBar, Label wwLabel, RadioButton noneRadioButton, RadioButton autoWLWWRadioButton, RadioButton findCircleAreaRadioButton)
         {
             _hWindowTools = halconWindowTools;
 
@@ -47,6 +46,7 @@ namespace HelloHalcon
             _wwLabel = wwLabel;
             _noneRadioButton = noneRadioButton;
             _autoWLWWRadioButton = autoWLWWRadioButton;
+            _findCircleAreaRadioButton = findCircleAreaRadioButton;
 
             _hWindowControl = _hWindowTools.GetHWindowControl();
             _hWindowControl.HMouseDown += HWindowControl_HMouseDown;
@@ -74,7 +74,7 @@ namespace HelloHalcon
             EnableWLWW(_wlwwCheckBox.Checked);
         }
 
-        private void EnableWLWW(bool wlwwEnabled)
+        public void EnableWLWW(bool wlwwEnabled)
         {
             _wlTrackBar.Visible = wlwwEnabled;
             _wwTrackBar.Visible = wlwwEnabled;
@@ -156,8 +156,10 @@ namespace HelloHalcon
             {
                 // 加载图像
                 _hWindowTools.OpenImage(fileName);
+                // 更新当前图像路径
                 _currentImageFilePath = fileName;
 
+                // 如果是16位图，启用窗宽窗位，否则禁用
                 if (_hWindowTools.GetImageInfo(out int imgWidth, out int imgHeight, out int imgChannels, out int imgBigDepth))
                 {
                     if (imgChannels == 1 && imgBigDepth == 16)
@@ -181,35 +183,12 @@ namespace HelloHalcon
             }
         }
 
-        public void OpenImage(HImage image)
+        // 直接打开图像
+        public void OpenImage(HObject image, int wl, int ww)
         {
-            try
-            {
-                // 加载图像
-                _hWindowTools.OpenImage(image, 0, 0);
-                _currentImageFilePath = "";
-
-                if (_hWindowTools.GetImageInfo(out int imgWidth, out int imgHeight, out int imgChannels, out int imgBigDepth))
-                {
-                    if (imgChannels == 1 && imgBigDepth == 16)
-                    {
-                        _wlwwCheckBox.Enabled = true;
-                        _wlwwCheckBox.Visible = true;
-                        _wlwwCheckBox.Checked = true;
-                    }
-                    else
-                    {
-                        _wlwwCheckBox.Enabled = false;
-                        _wlwwCheckBox.Visible = false;
-                        _wlwwCheckBox.Checked = false;
-                    }
-                    EnableWLWW(_wlwwCheckBox.Checked);
-                }
-            }
-            catch (HalconException ex)
-            {
-                MessageBox.Show("Error loading image: " + ex.Message);
-            }
+            _hWindowTools.OpenImage(image, wl, ww);
+            // 更新当前图像路径
+            _currentImageFilePath = "";
         }
 
         public string GetCurrentImageFilePath() => _currentImageFilePath;
@@ -222,13 +201,13 @@ namespace HelloHalcon
                 if (Control.ModifierKeys == Keys.Shift) // 按住 Shift 键时开始绘制矩形
                 {
                     if (_noneRadioButton.Checked) return;
-                    isDrawing = true;
-                    startPoint = new Point((int)e.X, (int)e.Y);
+                    _isDrawing = true;
+                    _startPoint = new Point((int)e.X, (int)e.Y);
                 }
                 else
                 {
-                    mouseLeftButDown = true;
-                    _hWindowControl.HalconWindow.GetMposition(out mouseLeftDownRow, out mouseLeftDownCol, out _);
+                    _mouseLeftButDown = true;
+                    _hWindowControl.HalconWindow.GetMposition(out _mouseLeftDownRow, out _mouseLeftDownCol, out _);
                     if (e.Clicks == 2) _hWindowTools.DispImageFit();
                 }
             }
@@ -240,26 +219,27 @@ namespace HelloHalcon
             //鼠标左键松开
             if (e.Button == MouseButtons.Left)
             {
-                if (isDrawing)
+                if (_isDrawing)
                 {
-                    isDrawing = false;
+                    _isDrawing = false;
                     if (_autoWLWWRadioButton.Checked)
                     {
-                        bool ret = _hWindowTools.CalcAutoWLWW(currentRectangle, out int wl, out int ww);
+                        bool ret = _hWindowTools.CalcAutoWLWW(_currentRectangle, out int wl, out int ww);
                         if (ret)
                         {
                             UpdataWLWW(wl, ww);
                             _hWindowTools.UpdataImageByWLWW(wl, ww);
                         }
                     }
-                    else
+                    else if (_findCircleAreaRadioButton.Checked)
                     {
-                        //hWindowTool.AddUserRectangle(currentRectangle);
+                        _hWindowTools.GetCirclePoint1(_currentRectangle);
+                        _hWindowTools.ReShowDrawALL();
                     }
                 }
                 else
                 {
-                    mouseLeftButDown = false;
+                    _mouseLeftButDown = false;
                     try
                     {
                         _hWindowControl.HalconWindow.GetMposition(out _, out _, out _);
@@ -273,20 +253,20 @@ namespace HelloHalcon
         private void HWindowControl_HMouseMove(object sender, HMouseEventArgs e)
         {
             // 鼠标按下时进行移动
-            if (isDrawing)
+            if (_isDrawing)
             {
-                currentRectangle = new Rectangle(
-                    (int)Math.Min(startPoint.X, e.X),
-                    (int)Math.Min(startPoint.Y, e.Y),
-                    (int)Math.Abs(startPoint.X - e.X),
-                    (int)Math.Abs(startPoint.Y - e.Y)
+                _currentRectangle = new Rectangle(
+                    (int)Math.Min(_startPoint.X, e.X),
+                    (int)Math.Min(_startPoint.Y, e.Y),
+                    (int)Math.Abs(_startPoint.X - e.X),
+                    (int)Math.Abs(_startPoint.Y - e.Y)
                 );
                 _hWindowTools.ReShowDrawALL();
-                _hWindowTools.DrawRectangle(currentRectangle);
+                _hWindowTools.DrawRectangle(_currentRectangle);
             }
-            else if (mouseLeftButDown)
+            else if (_mouseLeftButDown)
             {
-                _hWindowTools.DispImageMove(mouseLeftDownRow, mouseLeftDownCol);
+                _hWindowTools.DispImageMove(_mouseLeftDownRow, _mouseLeftDownCol);
             }
             else
             {
@@ -355,10 +335,6 @@ namespace HelloHalcon
                 _wwTrackBar.Value = ww;
             }
         }
-
-        public (bool, double, double) FitSmallestCircle()
-        {
-            return _hWindowTools.FitSmallestCircle();
-        }
     }
+
 }

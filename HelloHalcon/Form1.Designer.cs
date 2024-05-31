@@ -57,6 +57,7 @@
             this.wwTrackBar = new System.Windows.Forms.TrackBar();
             this.drawCenterCrossRadioButton = new System.Windows.Forms.CheckBox();
             this.drawSmallestCircleCheckBox = new System.Windows.Forms.CheckBox();
+            this.findCircleAreaRadioButton = new System.Windows.Forms.RadioButton();
             this.panel1.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.panel2.SuspendLayout();
@@ -93,11 +94,13 @@
             // 
             // groupBox1
             // 
+            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.groupBox1.Controls.Add(this.findCircleAreaRadioButton);
             this.groupBox1.Controls.Add(this.autoWLWWRadioButton);
             this.groupBox1.Controls.Add(this.noneRadioButton);
-            this.groupBox1.Location = new System.Drawing.Point(1084, 12);
+            this.groupBox1.Location = new System.Drawing.Point(1054, 12);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(304, 66);
+            this.groupBox1.Size = new System.Drawing.Size(334, 66);
             this.groupBox1.TabIndex = 3;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "画框的作用";
@@ -127,9 +130,9 @@
             // 
             // button5
             // 
-            this.button5.Location = new System.Drawing.Point(878, 12);
+            this.button5.Location = new System.Drawing.Point(779, 12);
             this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(97, 82);
+            this.button5.Size = new System.Drawing.Size(79, 82);
             this.button5.TabIndex = 2;
             this.button5.Text = "临时";
             this.button5.UseVisualStyleBackColor = true;
@@ -137,9 +140,9 @@
             // 
             // button4
             // 
-            this.button4.Location = new System.Drawing.Point(780, 12);
+            this.button4.Location = new System.Drawing.Point(699, 12);
             this.button4.Name = "button4";
-            this.button4.Size = new System.Drawing.Size(97, 82);
+            this.button4.Size = new System.Drawing.Size(79, 82);
             this.button4.TabIndex = 2;
             this.button4.Text = "清除框";
             this.button4.UseVisualStyleBackColor = true;
@@ -147,9 +150,9 @@
             // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(682, 12);
+            this.button3.Location = new System.Drawing.Point(619, 12);
             this.button3.Name = "button3";
-            this.button3.Size = new System.Drawing.Size(97, 82);
+            this.button3.Size = new System.Drawing.Size(79, 82);
             this.button3.TabIndex = 2;
             this.button3.Text = "画中框";
             this.button3.UseVisualStyleBackColor = true;
@@ -157,9 +160,9 @@
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(584, 12);
+            this.button2.Location = new System.Drawing.Point(524, 12);
             this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(97, 82);
+            this.button2.Size = new System.Drawing.Size(94, 82);
             this.button2.TabIndex = 2;
             this.button2.Text = "适应大小";
             this.button2.UseVisualStyleBackColor = true;
@@ -167,9 +170,9 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(486, 12);
+            this.button1.Location = new System.Drawing.Point(446, 12);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(97, 82);
+            this.button1.Size = new System.Drawing.Size(72, 82);
             this.button1.TabIndex = 2;
             this.button1.Text = "1:1";
             this.button1.UseVisualStyleBackColor = true;
@@ -177,9 +180,9 @@
             // 
             // fitSmallestCircleButton
             // 
-            this.fitSmallestCircleButton.Location = new System.Drawing.Point(976, 12);
+            this.fitSmallestCircleButton.Location = new System.Drawing.Point(859, 12);
             this.fitSmallestCircleButton.Name = "fitSmallestCircleButton";
-            this.fitSmallestCircleButton.Size = new System.Drawing.Size(97, 82);
+            this.fitSmallestCircleButton.Size = new System.Drawing.Size(79, 82);
             this.fitSmallestCircleButton.TabIndex = 2;
             this.fitSmallestCircleButton.Text = "外接圆";
             this.fitSmallestCircleButton.UseVisualStyleBackColor = true;
@@ -187,21 +190,21 @@
             // 
             // textBox3
             // 
-            this.textBox3.Location = new System.Drawing.Point(380, 12);
+            this.textBox3.Location = new System.Drawing.Point(340, 12);
             this.textBox3.Name = "textBox3";
             this.textBox3.Size = new System.Drawing.Size(100, 28);
             this.textBox3.TabIndex = 1;
             // 
             // textBox2
             // 
-            this.textBox2.Location = new System.Drawing.Point(274, 12);
+            this.textBox2.Location = new System.Drawing.Point(234, 12);
             this.textBox2.Name = "textBox2";
             this.textBox2.Size = new System.Drawing.Size(100, 28);
             this.textBox2.TabIndex = 1;
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(168, 12);
+            this.textBox1.Location = new System.Drawing.Point(128, 12);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(100, 28);
             this.textBox1.TabIndex = 1;
@@ -210,7 +213,7 @@
             // 
             this.openImageButton.Location = new System.Drawing.Point(12, 12);
             this.openImageButton.Name = "openImageButton";
-            this.openImageButton.Size = new System.Drawing.Size(147, 82);
+            this.openImageButton.Size = new System.Drawing.Size(110, 82);
             this.openImageButton.TabIndex = 0;
             this.openImageButton.Text = "打开图像";
             this.openImageButton.UseVisualStyleBackColor = true;
@@ -370,7 +373,7 @@
             // drawCenterCrossRadioButton
             // 
             this.drawCenterCrossRadioButton.AutoSize = true;
-            this.drawCenterCrossRadioButton.Location = new System.Drawing.Point(168, 55);
+            this.drawCenterCrossRadioButton.Location = new System.Drawing.Point(128, 55);
             this.drawCenterCrossRadioButton.Name = "drawCenterCrossRadioButton";
             this.drawCenterCrossRadioButton.Size = new System.Drawing.Size(88, 22);
             this.drawCenterCrossRadioButton.TabIndex = 4;
@@ -382,7 +385,7 @@
             // 
             this.drawSmallestCircleCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.drawSmallestCircleCheckBox.AutoSize = true;
-            this.drawSmallestCircleCheckBox.Location = new System.Drawing.Point(262, 56);
+            this.drawSmallestCircleCheckBox.Location = new System.Drawing.Point(222, 56);
             this.drawSmallestCircleCheckBox.Name = "drawSmallestCircleCheckBox";
             this.drawSmallestCircleCheckBox.Size = new System.Drawing.Size(88, 22);
             this.drawSmallestCircleCheckBox.TabIndex = 46;
@@ -390,6 +393,16 @@
             this.drawSmallestCircleCheckBox.UseVisualStyleBackColor = true;
             this.drawSmallestCircleCheckBox.CheckedChanged += new System.EventHandler(this.drawSmallestCircleCheckBox_CheckedChanged);
             this.drawSmallestCircleCheckBox.Click += new System.EventHandler(this.drawSmallestCircleCheckBox_Click);
+            // 
+            // findCircleAreaRadioButton
+            // 
+            this.findCircleAreaRadioButton.AutoSize = true;
+            this.findCircleAreaRadioButton.Location = new System.Drawing.Point(262, 33);
+            this.findCircleAreaRadioButton.Name = "findCircleAreaRadioButton";
+            this.findCircleAreaRadioButton.Size = new System.Drawing.Size(69, 22);
+            this.findCircleAreaRadioButton.TabIndex = 1;
+            this.findCircleAreaRadioButton.Text = "找圆";
+            this.findCircleAreaRadioButton.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
@@ -451,6 +464,7 @@
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.CheckBox drawCenterCrossRadioButton;
         private System.Windows.Forms.CheckBox drawSmallestCircleCheckBox;
+        private System.Windows.Forms.RadioButton findCircleAreaRadioButton;
     }
 }
 

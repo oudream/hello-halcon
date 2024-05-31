@@ -20,7 +20,7 @@ namespace HelloHalcon
             _hWindowTools = new HalconWindowTools(this.hWindowControl);
 
             _hWindowControlView = new HWindowControlView(_hWindowTools,
-                WLWWCheckBox, wlTrackBar, wlLabel, wwTrackBar, wwLabel, noneRadioButton, autoWLWWRadioButton);
+                WLWWCheckBox, wlTrackBar, wlLabel, wwTrackBar, wwLabel, noneRadioButton, autoWLWWRadioButton, findCircleAreaRadioButton);
             _hWindowControlView.ShowImageInfo += HWindowControlView_ShowImageInfo;
         }
 
@@ -126,7 +126,7 @@ namespace HelloHalcon
             HOperatorSet.GenImage1(out hObject, "byte", width, height, unmanagedBuffer);
             //HOperatorSet.Threshold(hObject, out HObject binaryImage, 0, 1);
 
-            _hWindowControlView.OpenImage(new HImage(hObject));
+            _hWindowControlView.OpenImage(hObject, 0, 0);
 
             Marshal.FreeHGlobal(unmanagedBuffer);
             hObject.Dispose();
@@ -327,7 +327,7 @@ namespace HelloHalcon
             HImage rgbImage = new HImage();
             rgbImage.GenImage3("byte", width, height, redChannel.GetImagePointer1(out type, out _, out _), greenChannel.GetImagePointer1(out type, out _, out _), blueChannel.GetImagePointer1(out type, out _, out _));
 
-            _hWindowControlView.OpenImage(rgbImage);
+            _hWindowControlView.OpenImage(rgbImage, 0, 0);
         }
 
         public void TestGray2Rgb2()
@@ -346,7 +346,7 @@ namespace HelloHalcon
 
             HImage rgbImage8 = grayImage8.Compose3(grayImage8, grayImage8);
 
-            _hWindowControlView.OpenImage(rgbImage8);
+            _hWindowControlView.OpenImage(rgbImage8, 0, 0);
 
             info = HalconHelper.GetImageInfoAsString(rgbImage8);
             Console.WriteLine(info);
@@ -367,7 +367,7 @@ namespace HelloHalcon
 
             HImage rgbImage8 = grayImage16.Compose3(grayImage16, grayImage16);
 
-            _hWindowControlView.OpenImage(rgbImage8);
+            _hWindowControlView.OpenImage(rgbImage8, 0, 0);
 
             info = HalconHelper.GetImageInfoAsString(rgbImage8);
             Console.WriteLine(info);
@@ -604,12 +604,14 @@ namespace HelloHalcon
         {
             if (drawSmallestCircleCheckBox.Checked)
             {
-                _hWindowTools.FitSmallestCircle();
-                _hWindowTools.ReShowDrawALL();
+                //_hWindowTools.FitSmallestCircle();
+                //_hWindowTools.ReShowDrawALL();
+                findCircleAreaRadioButton.Checked = true;
             }
             else
             {
                 _hWindowTools.ClearMinCircle();
+                autoWLWWRadioButton.Checked = true;
             }
         }
 
@@ -623,7 +625,6 @@ namespace HelloHalcon
 
         private void fitSmallestCircleButton_Click_1(object sender, EventArgs e)
         {
-            _hWindowTools.GetCirclePoint(this.hWindowControl);
         }
     }
 

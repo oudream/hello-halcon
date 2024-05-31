@@ -34,11 +34,11 @@ namespace HelloHalcon
         // 要绘制的对象
         private HObject _drawObjectList;
         private List<string> _drawObjectInfoList;
-        // 拟合的最小外接圆
-        private HObject _minCircle;
-        private double _circleCenterOffsetX;
-        private double _circleCenterOffsetY;
-        private double _circleRadius;
+        // 找到的圆
+        private HObject _findCircle;
+        private double _findCircleCenterOffsetX;
+        private double _findCircleCenterOffsetY;
+        private double _findCircleRadius;
 
         private HWindowControl _hWindowControl;
 
@@ -129,7 +129,7 @@ namespace HelloHalcon
 
         private void ImageChanged()
         {
-            if (_minCircle != null)
+            if (_findCircle != null)
             {
                 FitSmallestCircle();
             }
@@ -147,8 +147,6 @@ namespace HelloHalcon
             if (_origImage == null) return;
             if (wl == 0 || ww == 0) return;
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
             UseWLForImage(_origImage, out HObject imageByWL, wl, ww);
             _showingImage?.Dispose();
             _showingImage = imageByWL;
@@ -156,10 +154,6 @@ namespace HelloHalcon
             ImageChanged();
 
             ReShowDrawALL();
-
-            stopwatch.Stop();
-            var costCircleFitting = stopwatch.ElapsedMilliseconds;
-            Console.WriteLine($"图像调试 took ImageChanged={costCircleFitting} ms");
         }
 
         // 设置窗宽窗位，返回新的图像 ho_ImageSetWL
@@ -353,11 +347,11 @@ namespace HelloHalcon
             }
 
             // 绘制最小圆
-            if (_minCircle != null)
+            if (_findCircle != null)
             {
                 HOperatorSet.SetColor(_hWindowControl.HalconWindow, "red");
-                HOperatorSet.DispObj(_minCircle, _hWindowControl.HalconWindow);
-                DrawCrossAtCircleCenter(_minCircle, "red");
+                HOperatorSet.DispObj(_findCircle, _hWindowControl.HalconWindow);
+                DrawCrossAtCircleCenter(_findCircle, "red");
                 DisplayCircleInfo();
             }
 
@@ -411,9 +405,9 @@ namespace HelloHalcon
         private void DisplayCircleInfo()
         {
             // 获取圆心坐标
-            HOperatorSet.AreaCenter(_minCircle, out HTuple area, out HTuple row, out HTuple column);
+            HOperatorSet.AreaCenter(_findCircle, out HTuple area, out HTuple row, out HTuple column);
 
-            string info = $"X: {_circleCenterOffsetX:F2}, Y: {_circleCenterOffsetY:F2}, R: {_circleRadius:F2}";
+            string info = $"X: {_findCircleCenterOffsetX:F2}, Y: {_findCircleCenterOffsetY:F2}, R: {_findCircleRadius:F2}";
 
             // 设置显示文字的位置为圆心的右下方
             HOperatorSet.SetTposition(_hWindowControl.HalconWindow, row + 20, column + 20);
@@ -459,65 +453,6 @@ namespace HelloHalcon
             HOperatorSet.ConcatObj(_drawObjectList, obj, out _drawObjectList);
             _drawObjectInfoList.Add(info);//编号，跟随坐标X，跟随坐标Y，图案类型，图片左上角显示信息，图案颜色
             DrawAll();
-        }
-
-        // 拟合最小圆
-        // 圆心坐标: X = " + hv_Column.D + ", Y = " + hv_Row.D
-        public (bool, double, double) FitSmallestCircle()
-        {
-            if (_showingImage == null)
-            {
-                return (false, 0, 0);
-            }
-
-            // Local iconic variables 
-            HObject ho_Region, ho_RegionClosing, ho_Circle;
-            // Local control variables 
-            HTuple hv_UsedThreshold = new HTuple(), hv_Row = new HTuple();
-            HTuple hv_Column = new HTuple(), hv_Radius = new HTuple();
-            // Initialize local and output iconic variables 
-            HOperatorSet.GenEmptyObj(out ho_Region);
-            HOperatorSet.GenEmptyObj(out ho_RegionClosing);
-            HOperatorSet.GenEmptyObj(out ho_Circle);
-
-            var halconWindow = _hWindowControl.HalconWindow;
-            halconWindow.SetDraw("margin");
-            ho_Region.Dispose(); hv_UsedThreshold.Dispose();
-            // 二值化图像
-            HOperatorSet.BinaryThreshold(_showingImage, out ho_Region, "max_separability", "dark", out hv_UsedThreshold);
-            ho_RegionClosing.Dispose();
-            // 形态学开运算
-            HOperatorSet.OpeningCircle(ho_Region, out ho_RegionClosing, 3.5);
-            hv_Row.Dispose(); hv_Column.Dispose(); hv_Radius.Dispose();
-            // 拟合最小外接圆
-            HOperatorSet.SmallestCircle(ho_RegionClosing, out hv_Row, out hv_Column, out hv_Radius);
-            ho_Circle.Dispose();
-            // 生成圆对象
-            HOperatorSet.GenCircle(out ho_Circle, hv_Row, hv_Column, hv_Radius);
-            // 显示圆
-            HOperatorSet.DispObj(ho_Circle, halconWindow);
-            _minCircle?.Dispose();
-            _minCircle = ho_Circle;
-
-            var rX = hv_Column.D;
-            var rY = hv_Row.D;
-            //System.Console.WriteLine("圆心坐标: X = " + hv_Column.D + ", Y = " + hv_Row.D);
-
-            // 计算偏移值
-            HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
-            _circleCenterOffsetX = rX - width.D / 2;
-            _circleCenterOffsetY = rY - height.D / 2;
-            _circleRadius = hv_Radius.D;
-
-            ho_Region.Dispose();
-            ho_RegionClosing.Dispose();
-            //ho_Circle.Dispose();
-            hv_UsedThreshold.Dispose();
-            hv_Row.Dispose();
-            hv_Column.Dispose();
-            hv_Radius.Dispose();
-
-            return (true, rX, rY);
         }
 
         // 计算自动窗宽窗位
@@ -663,7 +598,7 @@ namespace HelloHalcon
         // 清除拟合的最小圆
         public void ClearMinCircle()
         {
-            _minCircle = null;
+            _findCircle = null;
 
             ReShowDrawALL();
         }
@@ -691,67 +626,203 @@ namespace HelloHalcon
             _drawObjectInfoList.Clear();
 
             // 清除拟合的最小圆
-            _minCircle = null;
+            _findCircle = null;
 
             DrawCenterCross = false;
 
             ReShowDrawALL();
         }
 
-        public (HTuple, HTuple, HTuple, HTuple, HTuple) GetCirclePoint(HWindowControl hWindowTool)
+        // 拟合最小圆
+        // 圆心坐标: X = " + hv_Column.D + ", Y = " + hv_Row.D
+        public (bool, double, double) FitSmallestCircle()
+        {
+            if (_showingImage == null)
+            {
+                return (false, 0, 0);
+            }
+
+            // Local iconic variables 
+            HObject ho_Region, ho_RegionClosing, ho_Circle;
+            // Local control variables 
+            HTuple hv_UsedThreshold = new HTuple(), hv_Row = new HTuple();
+            HTuple hv_Column = new HTuple(), hv_Radius = new HTuple();
+            // Initialize local and output iconic variables 
+            HOperatorSet.GenEmptyObj(out ho_Region);
+            HOperatorSet.GenEmptyObj(out ho_RegionClosing);
+            HOperatorSet.GenEmptyObj(out ho_Circle);
+
+            var halconWindow = _hWindowControl.HalconWindow;
+            halconWindow.SetDraw("margin");
+            ho_Region.Dispose(); hv_UsedThreshold.Dispose();
+            // 二值化图像
+            HOperatorSet.BinaryThreshold(_showingImage, out ho_Region, "max_separability", "dark", out hv_UsedThreshold);
+            ho_RegionClosing.Dispose();
+            // 形态学开运算
+            HOperatorSet.OpeningCircle(ho_Region, out ho_RegionClosing, 3.5);
+            hv_Row.Dispose(); hv_Column.Dispose(); hv_Radius.Dispose();
+            // 拟合最小外接圆
+            HOperatorSet.SmallestCircle(ho_RegionClosing, out hv_Row, out hv_Column, out hv_Radius);
+            ho_Circle.Dispose();
+            // 生成圆对象
+            HOperatorSet.GenCircle(out ho_Circle, hv_Row, hv_Column, hv_Radius);
+            // 显示圆
+            HOperatorSet.DispObj(ho_Circle, halconWindow);
+            _findCircle?.Dispose();
+            _findCircle = ho_Circle;
+
+            var rX = hv_Column.D;
+            var rY = hv_Row.D;
+            //System.Console.WriteLine("圆心坐标: X = " + hv_Column.D + ", Y = " + hv_Row.D);
+
+            // 计算偏移值
+            HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+            _findCircleCenterOffsetX = rX - width.D / 2;
+            _findCircleCenterOffsetY = rY - height.D / 2;
+            _findCircleRadius = hv_Radius.D;
+
+            ho_Region.Dispose();
+            ho_RegionClosing.Dispose();
+            //ho_Circle.Dispose();
+            hv_UsedThreshold.Dispose();
+            hv_Row.Dispose();
+            hv_Column.Dispose();
+            hv_Radius.Dispose();
+
+            return (true, rX, rY);
+        }
+
+        public int GetCirclePoint(HWindowControl hWindowTool, Rectangle selectRectangle, int selectIndex = -1)
         {
             if (_showingImage == null || _origImage == null)
             {
-                return (new HTuple(), new HTuple(), new HTuple(), new HTuple(), new HTuple());
+                _findCircle = null;
+                _findCircleRadius = 0;
+                _findCircleCenterOffsetX = 0;
+                _findCircleCenterOffsetY = 0;
+                return 0;
             }
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            // Local iconic variables
+            // 本地图像变量
             HObject ho_Image1, ho_Image3, ho_Image = null;
             HObject ho_Region, ho_ConnectedRegions, ho_RegionOpening;
             HObject ho_SortedRegions, ho_ObjectSelected, ho_Circle;
 
-            // Local control variables
+            // 本地控制变量
             HTuple hv_Area = new HTuple(), hv_Row = new HTuple(), hv_Column = new HTuple();
             HTuple hv_Row2 = new HTuple(), hv_Column2 = new HTuple(), hv_Radius = new HTuple();
-            // Initialize local and output iconic variables 
+            // 初始化本地和输出图像变量 
             HOperatorSet.GenEmptyObj(out ho_Image1);
             HOperatorSet.GenEmptyObj(out ho_Image3);
             HOperatorSet.GenEmptyObj(out ho_Image);
             HOperatorSet.GenEmptyObj(out ho_Region);
             HOperatorSet.GenEmptyObj(out ho_ConnectedRegions);
             HOperatorSet.GenEmptyObj(out ho_RegionOpening);
-            //HOperatorSet.GenEmptyObj(out ho_SortedRegions);
             HOperatorSet.GenEmptyObj(out ho_ObjectSelected);
             HOperatorSet.GenEmptyObj(out ho_Circle);
+
+            // 克隆原始图像
             ho_Image.Dispose();
             ho_Image = new HObject(_showingImage);
 
+            // 全图二值化
             ho_Region.Dispose();
-            //HOperatorSet.Threshold(ho_Image, out ho_Region, 0, ballGray);//22000
             HOperatorSet.BinaryThreshold(ho_Image, out ho_Region, "max_separability", "dark", out _);
-            //if (Form1.form.hWindowTool.detect_steel_ball)
-            //{
-            //HOperatorSet.DispObj(ho_Region, hWindowTool.HalconWindow);
-            //}
+
+            // 连接和开运算
             ho_ConnectedRegions.Dispose();
             HOperatorSet.Connection(ho_Region, out ho_ConnectedRegions);
             ho_RegionOpening.Dispose();
             HOperatorSet.OpeningCircle(ho_ConnectedRegions, out ho_RegionOpening, 10.5);
 
-            //选出所有圆形
+            // 选择圆形区域
             HOperatorSet.SelectShape(ho_RegionOpening, out ho_RegionOpening, "roundness", "and", 0.8, 2);
-            //排序
-            //ho_SortedRegions.Dispose();
+
+            // 排序区域
             HOperatorSet.SortRegion(ho_RegionOpening, out ho_SortedRegions, "upper_left", "true", "row");
-            //获取圆心和半径
-            hv_Area.Dispose(); hv_Row.Dispose(); hv_Column.Dispose();
-            HOperatorSet.AreaCenter(ho_SortedRegions, out hv_Area, out hv_Row, out hv_Column);
-            HOperatorSet.SmallestCircle(ho_SortedRegions, out hv_Row2, out hv_Column2, out hv_Radius);
 
-            HOperatorSet.DispObj(ho_SortedRegions, hWindowTool.HalconWindow);
+            int iSelect = -1;
 
+            if (selectIndex >= 0 && selectIndex < ho_SortedRegions.CountObj())
+            {
+                HOperatorSet.SelectObj(ho_SortedRegions, out ho_ObjectSelected, selectIndex);
+
+                // 获取区域的面积、中心和半径
+                hv_Area.Dispose(); hv_Row.Dispose(); hv_Column.Dispose();
+                HOperatorSet.AreaCenter(ho_ObjectSelected, out hv_Area, out hv_Row, out hv_Column);
+                HOperatorSet.SmallestCircle(ho_ObjectSelected, out hv_Row2, out hv_Column2, out hv_Radius);
+
+                // 检查圆心是否在选择的矩形区域内
+                // 找到一个圆，记录信息
+                HOperatorSet.GenCircle(out ho_Circle, hv_Row, hv_Column, hv_Radius);
+                _findCircle?.Dispose();
+                _findCircle = ho_Circle;
+
+                var rX = hv_Column.D;
+                var rY = hv_Row.D;
+
+                // 计算偏移值
+                HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+                _findCircleCenterOffsetX = rX - width.D / 2;
+                _findCircleCenterOffsetY = rY - height.D / 2;
+                _findCircleRadius = hv_Radius.D;
+
+                // 显示选定的圆形区域
+                HOperatorSet.DispObj(ho_ObjectSelected, hWindowTool.HalconWindow);
+
+                iSelect = selectIndex;
+            }
+            else
+            {
+                // 遍历找到的圆，检查是否在选择的矩形区域内
+                for (int i = 1; i <= ho_SortedRegions.CountObj(); i++)
+                {
+                    HOperatorSet.SelectObj(ho_SortedRegions, out ho_ObjectSelected, i);
+
+                    // 获取区域的面积、中心和半径
+                    hv_Area.Dispose(); hv_Row.Dispose(); hv_Column.Dispose();
+                    HOperatorSet.AreaCenter(ho_ObjectSelected, out hv_Area, out hv_Row, out hv_Column);
+                    HOperatorSet.SmallestCircle(ho_ObjectSelected, out hv_Row2, out hv_Column2, out hv_Radius);
+
+                    double circleX = hv_Column.D;
+                    double circleY = hv_Row.D;
+
+                    // 检查圆心是否在选择的矩形区域内
+                    if (circleX >= selectRectangle.Left && circleX <= selectRectangle.Right &&
+                        circleY >= selectRectangle.Top && circleY <= selectRectangle.Bottom)
+                    {
+                        // 找到一个圆，记录信息
+                        HOperatorSet.GenCircle(out ho_Circle, hv_Row, hv_Column, hv_Radius);
+                        _findCircle?.Dispose();
+                        _findCircle = ho_Circle;
+
+                        var rX = hv_Column.D;
+                        var rY = hv_Row.D;
+
+                        // 计算偏移值
+                        HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+                        _findCircleCenterOffsetX = rX - width.D / 2;
+                        _findCircleCenterOffsetY = rY - height.D / 2;
+                        _findCircleRadius = hv_Radius.D;
+
+                        // 显示选定的圆形区域
+                        HOperatorSet.DispObj(ho_ObjectSelected, hWindowTool.HalconWindow);
+
+                        iSelect = i;
+                        break; // 只需要一个圆，所以找到后立即退出循环
+                    }
+                }
+            }
+
+            if (iSelect != 0)
+            {
+                _findCircle = null;
+                _findCircleRadius = 0;
+                _findCircleCenterOffsetX = 0;
+                _findCircleCenterOffsetY = 0;
+            }
+
+            // 释放使用的对象
             ho_Image1.Dispose();
             ho_Image3.Dispose();
             ho_Image.Dispose();
@@ -762,11 +833,129 @@ namespace HelloHalcon
             ho_ObjectSelected.Dispose();
             hv_Area.Dispose();
 
-            stopwatch.Stop();
-            Console.WriteLine($"Cost Time: {stopwatch.ElapsedMilliseconds} MS");
-
-            return (hv_Row, hv_Column, hv_Row2, hv_Column2, hv_Radius);
+            return iSelect;
         }
+
+        // 更新后的 GetCirclePoint 方法
+        public (bool, double, double, double) GetCirclePoint1(Rectangle selectRectangle)
+        {
+            if (_showingImage == null || _origImage == null)
+            {
+                _findCircle = null;
+                _findCircleRadius = 0;
+                _findCircleCenterOffsetX = 0;
+                _findCircleCenterOffsetY = 0;
+                return (false, 0, 0, 0);
+            }
+
+            // 本地图像变量
+            HObject ho_Image1, ho_Image3, ho_Image = null;
+            HObject ho_Region, ho_ConnectedRegions, ho_RegionOpening;
+            HObject ho_SortedRegions, ho_ObjectSelected, ho_Circle;
+
+            // 本地控制变量
+            HTuple hv_Area = new HTuple(), hv_Row = new HTuple(), hv_Column = new HTuple();
+            HTuple hv_Row2 = new HTuple(), hv_Column2 = new HTuple(), hv_Radius = new HTuple();
+            // 初始化本地和输出图像变量 
+            HOperatorSet.GenEmptyObj(out ho_Image1);
+            HOperatorSet.GenEmptyObj(out ho_Image3);
+            HOperatorSet.GenEmptyObj(out ho_Image);
+            HOperatorSet.GenEmptyObj(out ho_Region);
+            HOperatorSet.GenEmptyObj(out ho_ConnectedRegions);
+            HOperatorSet.GenEmptyObj(out ho_RegionOpening);
+            HOperatorSet.GenEmptyObj(out ho_ObjectSelected);
+            HOperatorSet.GenEmptyObj(out ho_Circle);
+
+            // 克隆原始图像
+            ho_Image.Dispose();
+            ho_Image = new HObject(_showingImage);
+
+            // 根据选定区域生成矩形
+            HObject ho_SelectedRegion;
+            HOperatorSet.GenRectangle1(out ho_SelectedRegion, selectRectangle.Y, selectRectangle.X, selectRectangle.Y + selectRectangle.Height, selectRectangle.X + selectRectangle.Width);
+
+            // 将图像的域减少到选定区域
+            HObject ho_ReducedImage;
+            HOperatorSet.ReduceDomain(ho_Image, ho_SelectedRegion, out ho_ReducedImage);
+
+            // 对减少域后的图像进行二值化
+            ho_Region.Dispose();
+            HOperatorSet.BinaryThreshold(ho_ReducedImage, out ho_Region, "max_separability", "dark", out _);
+
+            // 连接和开运算
+            ho_ConnectedRegions.Dispose();
+            HOperatorSet.Connection(ho_Region, out ho_ConnectedRegions);
+            ho_RegionOpening.Dispose();
+            HOperatorSet.OpeningCircle(ho_ConnectedRegions, out ho_RegionOpening, 10.5);
+
+            // 选择圆形区域
+            HOperatorSet.SelectShape(ho_RegionOpening, out ho_RegionOpening, "roundness", "and", 0.85, 2);
+
+            // 排序区域，选择最大面积的圆
+            HOperatorSet.SortRegion(ho_RegionOpening, out ho_SortedRegions, "upper_left", "true", "row");
+            HOperatorSet.CountObj(ho_SortedRegions, out HTuple numberOfRegions);
+            // 获取最大圆的区域
+            if (numberOfRegions > 0)
+            {
+                HOperatorSet.SelectObj(ho_SortedRegions, out ho_ObjectSelected, 1);
+
+                // 获取区域的面积、中心和半径
+                hv_Area.Dispose(); hv_Row.Dispose(); hv_Column.Dispose();
+                HOperatorSet.AreaCenter(ho_ObjectSelected, out hv_Area, out hv_Row, out hv_Column);
+                HOperatorSet.SmallestCircle(ho_ObjectSelected, out hv_Row2, out hv_Column2, out hv_Radius);
+
+                // 生成圆对象
+                HOperatorSet.GenCircle(out ho_Circle, hv_Row, hv_Column, hv_Radius);
+                _findCircle?.Dispose();
+                _findCircle = ho_ObjectSelected;
+
+                var rX = hv_Column.D;
+                var rY = hv_Row.D;
+
+                // 计算偏移值
+                HOperatorSet.GetImageSize(_showingImage, out HTuple width, out HTuple height);
+                //_findCircleCenterOffsetX = rX - width.D / 2;
+                //_findCircleCenterOffsetY = rY - height.D / 2;
+                _findCircleCenterOffsetX = rX;
+                _findCircleCenterOffsetY = rY;
+                _findCircleRadius = hv_Radius.D;
+
+                // 释放使用的对象
+                ho_Image1.Dispose();
+                ho_Image3.Dispose();
+                ho_Image.Dispose();
+                ho_Region.Dispose();
+                ho_ConnectedRegions.Dispose();
+                ho_RegionOpening.Dispose();
+                ho_SortedRegions.Dispose();
+                //ho_ObjectSelected.Dispose();
+                ho_Circle.Dispose();
+
+                return (true, rX, rY, _findCircleRadius);
+            }
+            else
+            {
+                _findCircle = null;
+                _findCircleRadius = 0;
+                _findCircleCenterOffsetX = 0;
+                _findCircleCenterOffsetY = 0;
+
+                // 释放使用的对象
+                ho_Image1.Dispose();
+                ho_Image3.Dispose();
+                ho_Image.Dispose();
+                ho_Region.Dispose();
+                ho_ConnectedRegions.Dispose();
+                ho_RegionOpening.Dispose();
+                ho_SortedRegions.Dispose();
+                ho_ObjectSelected.Dispose();
+                hv_Area.Dispose();
+
+                return (false, 0, 0, 0);
+            }
+        }
+
+
     }
 
 }
